@@ -3,11 +3,14 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import DistributorProfile, Product, Bill
+from .models import DistributorProfile, Product, Bill, Customer
 import random
 import qrcode
 from io import BytesIO
 from django.core.files import File
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+
 
 def register_view(request):
     if request.method == 'POST':
@@ -82,6 +85,7 @@ def create_bill_view(request):
     if request.method == 'POST':
         customer_name = request.POST.get('customer_name')
         customer_phone = request.POST.get('customer_phone')
+        customer_address = request.POST.get('customer_address') # Naya Address field
         total_amount = request.POST.get('total_amount')
         
         # 1. Bill Database mein save karo
@@ -91,6 +95,17 @@ def create_bill_view(request):
             customer_phone=customer_phone,
             total_amount=total_amount
         )
+        
+        # Customer table mein save/update karo (Address ke sath)
+        customer, created = Customer.objects.get_or_create(
+            distributor=request.user,
+            phone=customer_phone,
+            defaults={'name': customer_name, 'address': customer_address}
+        )
+        if not created and customer_address:
+            customer.name = customer_name
+            customer.address = customer_address
+            customer.save()
         
         # 2. QR Code Data generate karo
         qr_data = f"Bill ID: {bill.id} | Customer: {customer_name} | Amount: ₹{total_amount}"
@@ -108,11 +123,9 @@ def create_bill_view(request):
         bill.qr_code.save(file_name, File(buffer), save=True)
         
         messages.success(request, "Bill and QR Code generated successfully!")
-        # Ab bill generate hote hi direct QR code / bill detail page par redirect hoga
         return redirect('bill_detail', bill_id=bill.id)
         
     return render(request, 'billing_app/create_bill.html')
-
 
 @login_required(login_url='login')
 def bill_detail_view(request, bill_id):
@@ -161,3 +174,37 @@ def order_history_view(request):
     # Logged-in distributor ke banaye gaye saare bills fetch karo
     bills = Bill.objects.filter(distributor=request.user).order_by('-created_at')
     return render(request, 'billing_app/order_history.html', {'bills': bills})
+
+@login_required(login_url='login')
+def customer_list_view(request):
+    query = request.GET.get('q', '')
+    if query:
+        customers = Customer.objects.filter(distributor=request.user, name__icontains=query) | Customer.objects.filter(distributor=request.user, phone__icontains=query)
+    else:
+        customers = Customer.objects.filter(distributor=request.user).order_by('-created_at')
+    return render(request, 'billing_app/customer_list.html', {'customers': customers, 'query': query})
+
+@login_required(login_url='login')
+def update_customer_view(request, pk):
+    customer = Customer.objects.get(pk=pk, distributor=request.user)
+    if request.method == 'POST':
+        customer.name = request.POST.get('name')
+        customer.email = request.POST.get('email')
+        customer.phone = request.POST.get('phone')
+        customer.address = request.POST.get('address')
+        customer.save()
+        messages.success(request, "Customer updated successfully!")
+        return redirect('customer_list')
+    return render(request, 'billing_app/update_customer.html', {'customer': customer})
+
+@login_required(login_url='login')
+def delete_customer_view(request, pk):
+    customer = Customer.objects.get(pk=pk, distributor=request.user)
+    customer.delete()
+    messages.success(request, "Customer deleted successfully!")
+    return redirect('customer_list')
+
+
+def logout_view(request):
+    logout(request)
+    return redirect('login') 
