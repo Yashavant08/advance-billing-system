@@ -60,25 +60,46 @@ def login_view(request):
 def dashboard_view(request):
     return render(request, 'billing_app/dashboard.html')
 
-
 @login_required(login_url='login')
 def add_product_view(request):
     if request.method == 'POST':
         name = request.POST.get('name')
+        category = request.POST.get('category')
         price = request.POST.get('price')
         stock = request.POST.get('stock')
+        gst_rate = request.POST.get('gst_rate', 0.00)
         
+        # Validation checks
+        try:
+            price_val = float(price)
+            stock_val = int(stock)
+            gst_val = float(gst_rate)
+            
+            if price_val <= 0:
+                messages.error(request, "Price must be greater than 0.")
+                return redirect('add_product')
+                
+            if stock_val < 0:
+                messages.error(request, "Stock cannot be negative.")
+                return redirect('add_product')
+                
+        except ValueError:
+            messages.error(request, "Invalid input for price or stock.")
+            return redirect('add_product')
+
+        # Product save karo
         Product.objects.create(
             distributor=request.user,
             name=name,
-            price=price,
-            stock=stock
+            category=category,
+            price=price_val,
+            stock=stock_val,
+            gst_rate=gst_val
         )
         messages.success(request, "Product added successfully!")
         return redirect('dashboard')
         
     return render(request, 'billing_app/add_product.html')
-
 
 @login_required(login_url='login')
 def create_bill_view(request):
@@ -208,3 +229,21 @@ def delete_customer_view(request, pk):
 def logout_view(request):
     logout(request)
     return redirect('login') 
+
+from django.core.paginator import Paginator
+
+@login_required(login_url='login')
+def product_list_view(request):
+    query = request.GET.get('q', '')
+    
+    if query:
+        products = Product.objects.filter(distributor=request.user, name__icontains=query).order_by('-created_at')
+    else:
+        products = Product.objects.filter(distributor=request.user).order_by('-created_at')
+        
+    # Pagination (10 products per page)
+    paginator = Paginator(products, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'billing_app/product_list.html', {'page_obj': page_obj, 'query': query})

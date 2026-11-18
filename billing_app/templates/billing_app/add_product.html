@@ -20,7 +20,7 @@
 </head>
 <body class="d-flex align-items-center justify-content-center min-vh-100 py-5">
 
-    <div class="card form-card p-4 p-md-5" style="max-width: 480px; width: 100%;">
+    <div class="card form-card p-4 p-md-5" style="max-width: 520px; width: 100%;">
         <div class="text-center mb-4">
             <div class="header-badge">
                 <i class="fa-solid fa-boxes-stacked"></i>
@@ -50,21 +50,41 @@
                 </div>
             </div>
 
-            <!-- Price -->
+            <!-- Category -->
             <div class="mb-3">
-                <label class="form-label fw-semibold text-secondary small">Price (₹)</label>
+                <label class="form-label fw-semibold text-secondary small">Category</label>
                 <div class="input-group">
-                    <span class="input-group-text fw-bold">₹</span>
-                    <input type="number" step="0.01" name="price" class="form-control fw-semibold" placeholder="0.00" required>
+                    <span class="input-group-text"><i class="fa-solid fa-folder"></i></span>
+                    <input type="text" name="category" class="form-control" placeholder="e.g., Electronics, Grocery, etc.">
                 </div>
             </div>
 
-            <!-- Stock Quantity -->
+            <div class="row">
+                <!-- Price -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-secondary small">Price (₹)</label>
+                    <div class="input-group">
+                        <span class="input-group-text fw-bold">₹</span>
+                        <input type="number" step="0.01" min="0.01" name="price" class="form-control fw-semibold" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <!-- Stock Quantity -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold text-secondary small">Stock Quantity</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
+                        <input type="number" min="0" name="stock" class="form-control" placeholder="0" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GST Rate -->
             <div class="mb-4">
-                <label class="form-label fw-semibold text-secondary small">Stock Quantity</label>
+                <label class="form-label fw-semibold text-secondary small">GST Rate (%)</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
-                    <input type="number" name="stock" class="form-control" placeholder="Enter stock quantity" required>
+                    <span class="input-group-text"><i class="fa-solid fa-percent"></i></span>
+                    <input type="number" step="0.01" min="0" name="gst_rate" class="form-control" placeholder="0.00" value="0.00">
                 </div>
             </div>
 
