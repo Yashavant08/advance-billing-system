@@ -8,15 +8,28 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-canvas: #f1f5f9;
+            --surface: #ffffff;
+            --ink-primary: #0f172a;
+            --ink-muted: #64748b;
+            --border-subtle: #e2e8f0;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9;
-            color: #1e293b;
+            background-color: var(--bg-canvas);
+            color: var(--ink-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
+
         /* Glassmorphic Dark Navbar */
         .navbar-custom {
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
         }
         .brand-icon {
             background: linear-gradient(135deg, #3b82f6, #6366f1);
@@ -30,52 +43,68 @@
         }
         .user-pill {
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.14);
             padding: 6px 16px;
             border-radius: 50px;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
         }
+
         /* Hero Welcome Banner */
         .welcome-banner {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #1d4ed8 100%);
-            border-radius: 20px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #1d4ed8 100%);
+            border-radius: 22px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 15px 30px -10px rgba(15, 23, 42, 0.25);
+            box-shadow: 0 18px 35px -12px rgba(15, 23, 42, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .welcome-banner::after {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -10%;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%);
+            top: -55%;
+            right: -8%;
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, rgba(96, 165, 250, 0.28) 0%, transparent 70%);
             border-radius: 50%;
             pointer-events: none;
         }
+        .btn-hero-light {
+            background-color: #ffffff;
+            color: #0f172a;
+            border: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-hero-light:hover {
+            background-color: #f8fafc;
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
         /* Modern Action Cards */
         .action-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
+            background: var(--surface);
+            border: 1px solid var(--border-subtle);
             border-radius: 20px;
-            transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.26s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
         }
         .action-card:hover {
             transform: translateY(-6px);
-            box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.1);
+            box-shadow: 0 20px 35px -12px rgba(15, 23, 42, 0.12);
             border-color: #cbd5e1;
         }
         .icon-box {
             width: 54px;
             height: 54px;
-            border-radius: 14px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             margin-bottom: 1.25rem;
         }
         .icon-blue { background-color: #eff6ff; color: #2563eb; }
@@ -86,18 +115,18 @@
         .btn-modern {
             font-weight: 600;
             font-size: 0.85rem;
-            padding: 9px 14px;
+            padding: 10px 14px;
             border-radius: 12px;
             transition: all 0.2s ease;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 7px;
         }
-        .btn-modern:hover i {
-            transform: translateX(3px);
+        .btn-modern:hover i.arrow-slide {
+            transform: translateX(4px);
         }
-        .btn-modern i {
+        .btn-modern i.arrow-slide {
             transition: transform 0.2s ease;
         }
         .btn-purple {
@@ -114,13 +143,13 @@
 <body>
 
     <!-- Navbar -->
-    <nav class="navbar navbar-dark navbar-custom px-4 py-3 sticky-top">
+    <nav class="navbar navbar-dark navbar-custom px-3 px-sm-4 py-3 sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold fs-5 d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
                 <span class="brand-icon"><i class="fa-solid fa-bolt text-white fs-6"></i></span>
                 <span>Advance Billing <span class="text-primary fw-normal">Pro</span></span>
             </a>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 gap-sm-3">
                 <span class="text-light user-pill d-none d-sm-inline-flex align-items-center gap-2">
                     <i class="fa-solid fa-circle-user text-info"></i>
                     <span>{{ request.user.first_name|default:request.user.username }}</span>
@@ -133,32 +162,32 @@
     </nav>
 
     <!-- Main Content -->
-    <div class="container py-5">
-        
+    <main class="container py-4 py-md-5 flex-grow-1">
+
         <!-- Welcome Banner -->
-        <div class="welcome-banner p-4 p-md-5 mb-4 text-white">
-            <div class="row align-items-center">
+        <section class="welcome-banner p-4 p-md-5 mb-4 text-white">
+            <div class="row align-items-center g-4">
                 <div class="col-lg-8">
-                    <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-3 py-1 mb-3 fw-medium">
+                    <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-3 py-1.5 mb-3 fw-medium">
                         <i class="fa-solid fa-sparkles me-1"></i> Distributor Control Panel
                     </span>
-                    <h2 class="fw-bold mb-2 display-6">Welcome back, {{ request.user.first_name|default:request.user.username }}! 👋</h2>
+                    <h1 class="fw-bold mb-2 fs-2 fs-md-1">Welcome back, {{ request.user.first_name|default:request.user.username }}! 👋</h1>
                     <p class="text-light text-opacity-75 mb-0 fs-6">
-                        Manage your product inventory with search & pagination, generate instant QR-enabled invoices, and organize customer records.
+                        Manage your product inventory with search &amp; pagination, generate instant QR-enabled invoices, and organize customer records.
                     </p>
                 </div>
-                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
-                    <a href="{% url 'create_bill' %}" class="btn btn-light text-dark fw-semibold px-4 py-2.5 rounded-pill shadow-sm">
+                <div class="col-lg-4 text-lg-end">
+                    <a href="{% url 'create_bill' %}" class="btn btn-hero-light fw-semibold px-4 py-2.5 rounded-pill shadow-sm">
                         <i class="fa-solid fa-qrcode text-primary me-2"></i> Quick Generate Bill
                     </a>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-4 shadow-sm border-0 mb-4" role="alert">
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-4 shadow-sm border-0 mb-4" role="alert">
                     <i class="fa-solid fa-circle-check me-2"></i> {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
@@ -167,7 +196,9 @@
 
         <!-- Section Title -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold text-secondary text-uppercase small tracking-wider mb-0">Quick Actions & Modules</h5>
+            <h2 class="fw-bold text-secondary text-uppercase small mb-0" style="letter-spacing: 0.08em;">
+                Quick Actions &amp; Modules
+            </h2>
         </div>
 
         <!-- Action Cards Grid -->
@@ -178,15 +209,17 @@
                     <div class="icon-box icon-blue">
                         <i class="fa-solid fa-boxes-stacked"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-2">Inventory</h5>
-                    <p class="text-muted small mb-3">Add products with GST, search inventory, and monitor stock levels.</p>
-                    
+                    <h3 class="h5 fw-bold text-dark mb-2">Inventory</h3>
+                    <p class="text-muted small mb-4">Add products with GST, update item details, search stock, and monitor availability.</p>
+
                     <div class="mt-auto d-flex flex-column gap-2">
                         <a href="{% url 'add_product' %}" class="btn btn-primary btn-modern w-100">
-                            <span><i class="fa-solid fa-plus"></i> Add Product</span>
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add Product</span>
                         </a>
                         <a href="{% url 'product_list' %}" class="btn btn-light btn-modern w-100 border text-primary">
-                            <span><i class="fa-solid fa-list"></i> View Inventory List</span>
+                            <i class="fa-solid fa-list"></i>
+                            <span>View &amp; Manage List</span>
                         </a>
                     </div>
                 </div>
@@ -198,11 +231,11 @@
                     <div class="icon-box icon-green">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-2">Create Bill & QR</h5>
+                    <h3 class="h5 fw-bold text-dark mb-2">Create Bill &amp; QR</h3>
                     <p class="text-muted small mb-4">Generate customer invoices with instant scannable payment QR codes.</p>
                     <a href="{% url 'create_bill' %}" class="btn btn-success btn-modern mt-auto">
                         <span>Create Bill</span>
-                        <i class="fa-solid fa-arrow-right"></i>
+                        <i class="fa-solid fa-arrow-right arrow-slide"></i>
                     </a>
                 </div>
             </div>
@@ -213,11 +246,11 @@
                     <div class="icon-box icon-purple">
                         <i class="fa-solid fa-users"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-2">Customers</h5>
+                    <h3 class="h5 fw-bold text-dark mb-2">Customers</h3>
                     <p class="text-muted small mb-4">View all customers, search records, edit contact info, or delete accounts.</p>
                     <a href="{% url 'customer_list' %}" class="btn btn-purple btn-modern mt-auto">
                         <span>Manage Customers</span>
-                        <i class="fa-solid fa-arrow-right"></i>
+                        <i class="fa-solid fa-arrow-right arrow-slide"></i>
                     </a>
                 </div>
             </div>
@@ -228,21 +261,23 @@
                     <div class="icon-box icon-slate">
                         <i class="fa-solid fa-clock-rotate-left"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-2">Order History</h5>
+                    <h3 class="h5 fw-bold text-dark mb-2">Order History</h3>
                     <p class="text-muted small mb-4">Track all previously generated customer invoices and digital QR records.</p>
                     <a href="{% url 'order_history' %}" class="btn btn-dark btn-modern mt-auto">
                         <span>Past Orders</span>
-                        <i class="fa-solid fa-arrow-right"></i>
+                        <i class="fa-solid fa-arrow-right arrow-slide"></i>
                     </a>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- Subtle Footer -->
-        <div class="text-center text-muted small mt-5 pt-3 border-top">
-            Advance Billing & QR Management System &bull; Secure Distributor Portal
+    <!-- Subtle Footer -->
+    <footer class="text-center text-muted small py-3 mt-4 border-top bg-white">
+        <div class="container">
+            Advance Billing &amp; QR Management System &bull; Secure Distributor Portal
         </div>
-    </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

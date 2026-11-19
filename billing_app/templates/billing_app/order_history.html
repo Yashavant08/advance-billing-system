@@ -64,17 +64,24 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for bill in bills %}
+                            {% for invoice in invoices %}
                             <tr>
-                                <td class="ps-4 fw-bold text-dark">#{{ bill.id }}</td>
+                                <td class="ps-4 fw-bold text-dark">{{ invoice.invoice_number }}</td>
                                 <td>
-                                    <div class="fw-semibold text-dark">{{ bill.customer_name }}</div>
+                                    <div class="fw-semibold text-dark">{{ invoice.customer.name }}</div>
+                                    {% if invoice.items.all %}
+                                        <div class="text-muted small">
+                                            {% for item in invoice.items.all %}
+                                                {{ item.product.name }} ({{ item.quantity }}){% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </td>
-                                <td><span class="badge bg-light text-dark border px-2 py-1">{{ bill.customer_phone }}</span></td>
-                                <td class="text-success fw-bold">₹{{ bill.total_amount }}</td>
-                                <td class="text-muted small"><i class="fa-regular fa-clock me-1"></i> {{ bill.created_at|date:"d M Y, h:i A" }}</td>
+                                <td><span class="badge bg-light text-dark border px-2 py-1">{{ invoice.customer.phone }}</span></td>
+                                <td class="text-success fw-bold">₹{{ invoice.total_amount }}</td>
+                                <td class="text-muted small"><i class="fa-regular fa-clock me-1"></i> {{ invoice.created_at|date:"d M Y, h:i A" }}</td>
                                 <td class="text-end pe-4">
-                                    <a href="{% url 'bill_detail' bill.id %}" class="btn btn-view-qr">
+                                    <a href="{% url 'bill_detail' invoice.pk %}" class="btn btn-view-qr">
                                         <i class="fa-solid fa-qrcode me-1"></i> View QR
                                     </a>
                                 </td>

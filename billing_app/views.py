@@ -10,7 +10,7 @@ from io import BytesIO
 from django.core.files import File
 from django.contrib.auth import logout
 from django.shortcuts import redirect
-
+from django.shortcuts import render, get_object_or_404, redirect
 
 def register_view(request):
     if request.method == 'POST':
@@ -247,3 +247,179 @@ def product_list_view(request):
     page_obj = paginator.get_page(page_number)
     
     return render(request, 'billing_app/product_list.html', {'page_obj': page_obj, 'query': query})
+
+
+@login_required(login_url='login')
+def update_product(request, pk):
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        category = request.POST.get('category', '').strip()
+        price = request.POST.get('price')
+        stock = request.POST.get('stock')
+        gst_rate = request.POST.get('gst_rate', 0.00)
+
+        try:
+            price_val = float(price)
+            stock_val = int(stock)
+            gst_val = float(gst_rate)
+
+            if not name:
+                messages.error(request, "Product name is required.")
+                return redirect('update_product', pk=product.pk)
+
+            if price_val <= 0:
+                messages.error(request, "Price must be greater than 0.")
+                return redirect('update_product', pk=product.pk)
+
+            if stock_val < 0:
+                messages.error(request, "Stock cannot be negative.")
+                return redirect('update_product', pk=product.pk)
+
+        except (TypeError, ValueError):
+            messages.error(request, "Invalid input for price, stock, or GST rate.")
+            return redirect('update_product', pk=product.pk)
+
+        product.name = name
+        product.category = category
+        product.price = price_val
+        product.stock = stock_val
+        product.gst_rate = gst_val
+        product.save()
+
+        messages.success(request, "Product updated successfully!")
+        return redirect('product_list')
+
+    return render(request, 'billing_app/update_product.html', {'product': product})
+
+@login_required(login_url='login')
+def delete_product(request, pk):
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    if request.method == 'POST':
+        product_name = product.name
+        product.delete()
+        messages.success(request, f'Product "{product_name}" deleted successfully!')
+        return redirect('product_list')
+
+    return redirect('product_list')
+
+from decimal import Decimal
+from django.db import transaction
+from django.utils import timezone
+from .models import Customer, Product, Invoice, InvoiceItem
+
+
+@login_required(login_url='login')
+@transaction.atomic
+def create_bill_view(request):
+    products = Product.objects.filter(distributor=request.user, stock__gt=0).order_by('name')
+
+    if request.method == 'POST':
+        customer_name = request.POST.get('customer_name', '').strip()
+        customer_phone = request.POST.get('customer_phone', '').strip()
+        customer_address = request.POST.get('customer_address', '').strip()
+
+        product_ids = request.POST.getlist('product_id')
+        quantities = request.POST.getlist('quantity')
+
+        if not customer_name or not customer_phone:
+            messages.error(request, "Customer name and phone number are required.")
+            return redirect('create_bill')
+
+        if not product_ids:
+            messages.error(request, "Please select at least one product.")
+            return redirect('create_bill')
+
+        customer, created = Customer.objects.get_or_create(
+            distributor=request.user,
+            phone=customer_phone,
+            defaults={'name': customer_name, 'address': customer_address}
+        )
+        if not created:
+            customer.name = customer_name
+            if customer_address:
+                customer.address = customer_address
+            customer.save()
+
+        inv_number = f"INV-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        invoice = Invoice.objects.create(
+            distributor=request.user,
+            customer=customer,
+            invoice_number=inv_number,
+        )
+
+        subtotal_sum = Decimal('0.00')
+        gst_sum = Decimal('0.00')
+        items_created = 0
+
+        for prod_id, qty_raw in zip(product_ids, quantities):
+            if not prod_id:
+                continue
+            try:
+                qty = int(qty_raw)
+                if qty <= 0:
+                    continue
+                product = Product.objects.select_for_update().get(
+                    pk=int(prod_id),
+                    distributor=request.user
+                )
+            except (ValueError, Product.DoesNotExist):
+                continue
+
+            if qty > product.stock:
+                transaction.set_rollback(True)
+                messages.error(
+                    request,
+                    f'Insufficient stock for "{product.name}" (Available: {product.stock}).'
+                )
+                return redirect('create_bill')
+
+            unit_price = Decimal(str(product.price))
+            gst_rate = Decimal(str(product.gst_rate))
+            line_sub = unit_price * qty
+            line_gst = (line_sub * gst_rate) / Decimal('100')
+
+            InvoiceItem.objects.create(
+                invoice=invoice,
+                product=product,
+                quantity=qty,
+                unit_price=unit_price,
+                gst_rate=gst_rate,
+            )
+
+            product.stock -= qty
+            product.save()
+
+            subtotal_sum += line_sub
+            gst_sum += line_gst
+            items_created += 1
+
+        if items_created == 0:
+            transaction.set_rollback(True)
+            messages.error(request, "Please enter a valid quantity for at least one product.")
+            return redirect('create_bill')
+
+        invoice.subtotal = subtotal_sum.quantize(Decimal('0.01'))
+        invoice.gst_amount = gst_sum.quantize(Decimal('0.01'))
+        invoice.total_amount = (subtotal_sum + gst_sum).quantize(Decimal('0.01'))
+        invoice.save()
+
+        messages.success(request, f"Invoice #{invoice.invoice_number} created successfully!")
+        return redirect('dashboard')  # Ya apne invoice detail/history URL name par redirect kar sakte hain
+
+    return render(request, 'billing_app/create_bill.html', {'products': products})
+
+from .models import Invoice
+
+
+@login_required(login_url='login')
+def order_history_view(request):
+    invoices = (
+        Invoice.objects.filter(distributor=request.user)
+        .select_related('customer')
+        .prefetch_related('items__product')
+        .order_by('-created_at')
+    )
+    return render(request, 'billing_app/order_history.html', {'invoices': invoices})
