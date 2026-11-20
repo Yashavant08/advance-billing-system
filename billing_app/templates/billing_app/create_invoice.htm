@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Invoice | Advance Billing System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light py-4">
+<div class="container">
+    <div class="card shadow-sm p-4">
+        <h3 class="mb-4">Create Invoice</h3>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST" id="invoiceForm">
+            {% csrf_token %}
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label for="id_customer" class="form-label fw-semibold">Customer</label>
+                    {{ form.customer }}
+                </div>
+                <div class="col-md-6">
+                    <label for="id_invoice_number" class="form-label fw-semibold">Invoice Number</label>
+                    {{ form.invoice_number }}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Invoice Items</h5>
+                <button type="button" class="btn btn-sm btn-primary" id="addRowBtn">+ Add Item Row</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="itemsTable">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th style="width: 28%;">Product</th>
+                            <th style="width: 14%;">Unit Price (₹)</th>
+                            <th style="width: 11%;">Qty</th>
+                            <th style="width: 12%;">GST (%)</th>
+                            <th style="width: 13%;">Discount (₹)</th>
+                            <th style="width: 14%;">Item Total (₹)</th>
+                            <th style="width: 8%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        <tr class="item-row">
+                            <td>
+                                <select name="product" class="form-select item-product" required>
+                                    <option value="" data-price="0" data-gst="0">-- Select Product --</option>
+                                    {% for p in products %}
+                                        <option value="{{ p.id }}" data-price="{{ p.price }}" data-gst="{{ p.gst_rate }}">
+                                            {{ p.name }} (₹{{ p.price }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control item-price" value="0.00" readonly>
+                            </td>
+                            <td>
+                                <input type="number" name="quantity" class="form-control item-qty" min="1" value="1" required>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" min="0" max="100" name="gst_rate" class="form-control item-gst" value="0.00">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" min="0" name="discount" class="form-control item-discount" value="0.00">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control item-total fw-bold" value="0.00" readonly>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn">×</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row justify-content-end mt-3">
+                <div class="col-md-4">
+                    <div class="border rounded p-3 bg-white">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Subtotal:</span>
+                            <strong>₹<span id="summarySubtotal">0.00</span></strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Total Discount:</span>
+                            <strong>- ₹<span id="summaryDiscount">0.00</span></strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Total GST:</span>
+                            <strong>+ ₹<span id="summaryGst">0.00</span></strong>
+                        </div>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between fs-5">
+                            <strong>Grand Total:</strong>
+                            <strong>₹<span id="summaryGrandTotal">0.00</span></strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-success px-4">Save Invoice</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    const itemsBody = document.getElementById('itemsBody');
+    const addRowBtn = document.getElementById('addRowBtn');
+
+    function toNum(val, fallback = 0) {
+        const parsed = parseFloat(val);
+        return Number.isNaN(parsed) ? fallback : parsed;
+    }
+
+    function calculateRow(row) {
+        const selectEl = row.querySelector('.item-product');
+        const selectedOption = selectEl.options[selectEl.selectedIndex];
+        const unitPrice = toNum(selectedOption ? selectedOption.dataset.price : 0, 0);
+        const qty = Math.max(1, parseInt(row.querySelector('.item-qty').value, 10) || 1);
+        const gstRate = Math.max(0, toNum(row.querySelector('.item-gst').value, 0));
+        const rawDiscount = Math.max(0, toNum(row.querySelector('.item-discount').value, 0));
+
+        row.querySelector('.item-price').value = unitPrice.toFixed(2);
+
+        const lineSubtotal = unitPrice * qty;
+        const appliedDiscount = Math.min(rawDiscount, lineSubtotal);
+        const taxableAmount = Math.max(0, lineSubtotal - appliedDiscount);
+        const gstAmount = (taxableAmount * gstRate) / 100;
+        const lineTotal = taxableAmount + gstAmount;
+
+        row.querySelector('.item-total').value = lineTotal.toFixed(2);
+
+        return {
+            subtotal: lineSubtotal,
+            discount: appliedDiscount,
+            gst: gstAmount,
+            total: lineTotal
+        };
+    }
+
+    function recalculateAll() {
+        let subtotal = 0;
+        let discount = 0;
+        let gst = 0;
+        let grandTotal = 0;
+
+        itemsBody.querySelectorAll('.item-row').forEach(row => {
+            const res = calculateRow(row);
+            subtotal += res.subtotal;
+            discount += res.discount;
+            gst += res.gst;
+            grandTotal += res.total;
+        });
+
+        document.getElementById('summarySubtotal').textContent = subtotal.toFixed(2);
+        document.getElementById('summaryDiscount').textContent = discount.toFixed(2);
+        document.getElementById('summaryGst').textContent = gst.toFixed(2);
+        document.getElementById('summaryGrandTotal').textContent = grandTotal.toFixed(2);
+    }
+
+    function attachRowEvents(row) {
+        const productSelect = row.querySelector('.item-product');
+        productSelect.addEventListener('change', function () {
+            const selectedOption = this.options[this.selectedIndex];
+            const defaultGst = selectedOption ? selectedOption.dataset.gst : '0.00';
+            row.querySelector('.item-gst').value = toNum(defaultGst, 0).toFixed(2);
+            recalculateAll();
+        });
+
+        row.querySelector('.item-qty').addEventListener('input', recalculateAll);
+        row.querySelector('.item-gst').addEventListener('input', recalculateAll);
+        row.querySelector('.item-discount').addEventListener('input', recalculateAll);
+
+        row.querySelector('.remove-row-btn').addEventListener('click', function () {
+            const rows = itemsBody.querySelectorAll('.item-row');
+            if (rows.length > 1) {
+                row.remove();
+                recalculateAll();
+            } else {
+                // Reset single remaining row instead of leaving empty invoice
+                productSelect.value = '';
+                row.querySelector('.item-price').value = '0.00';
+                row.querySelector('.item-qty').value = '1';
+                row.querySelector('.item-gst').value = '0.00';
+                row.querySelector('.item-discount').value = '0.00';
+                row.querySelector('.item-total').value = '0.00';
+                recalculateAll();
+            }
+        });
+    }
+
+    addRowBtn.addEventListener('click', function () {
+        const firstRow = itemsBody.querySelector('.item-row');
+        const newRow = firstRow.cloneNode(true);
+
+        newRow.querySelector('.item-product').value = '';
+        newRow.querySelector('.item-price').value = '0.00';
+        newRow.querySelector('.item-qty').value = '1';
+        newRow.querySelector('.item-gst').value = '0.00';
+        newRow.querySelector('.item-discount').value = '0.00';
+        newRow.querySelector('.item-total').value = '0.00';
+
+        itemsBody.appendChild(newRow);
+        attachRowEvents(newRow);
+        recalculateAll();
+    });
+
+    itemsBody.querySelectorAll('.item-row').forEach(attachRowEvents);
+    recalculateAll();
+})();
+</script>
+</body>
+</html>

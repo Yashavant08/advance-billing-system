@@ -47,6 +47,14 @@
             padding: 6px 16px;
             border-radius: 50px;
             font-size: 0.875rem;
+            text-decoration: none;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .user-pill:hover,
+        .user-pill:focus {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.24);
+            color: #ffffff;
         }
 
         /* Hero Welcome Banner */
@@ -150,10 +158,19 @@
                 <span>Advance Billing <span class="text-primary fw-normal">Pro</span></span>
             </a>
             <div class="d-flex align-items-center gap-2 gap-sm-3">
-                <span class="text-light user-pill d-none d-sm-inline-flex align-items-center gap-2">
-                    <i class="fa-solid fa-circle-user text-info"></i>
-                    <span>{{ request.user.first_name|default:request.user.username }}</span>
-                </span>
+                <div class="dropdown">
+                    <button class="text-light user-pill d-inline-flex align-items-center gap-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-circle-user text-info"></i>
+                        <span class="fw-semibold">{{ request.user.first_name|default:request.user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-2">
+                        <li>
+                            <a class="dropdown-item py-2 fw-medium" href="{% url 'profile' %}">
+                                <i class="fa-solid fa-user-pen me-2 text-primary"></i>Edit Profile
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-pill fw-medium">
                     <i class="fa-solid fa-right-from-bracket me-1"></i> Logout
                 </a>

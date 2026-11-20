@@ -1,5 +1,7 @@
-from django.db import models
+from decimal import Decimal
 from django.contrib.auth.models import User
+from django.db import models
+
 
 class DistributorProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -10,17 +12,19 @@ class DistributorProfile(models.Model):
     def __str__(self):
         return self.user.username
 
+
 class Product(models.Model):
     distributor = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=100, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.IntegerField()
-    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
 
 class Bill(models.Model):
     distributor = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -32,6 +36,8 @@ class Bill(models.Model):
 
     def __str__(self):
         return f"Bill # {self.id} - {self.customer_name}"
+
+
 class Customer(models.Model):
     distributor = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
@@ -43,16 +49,13 @@ class Customer(models.Model):
     def __str__(self):
         return self.name
 
-from django.db import models
-from django.contrib.auth.models import User
-from decimal import Decimal
-
 
 class Invoice(models.Model):
     distributor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='invoices')
     customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='invoices')
     invoice_number = models.CharField(max_length=50, unique=True)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     gst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
@@ -66,6 +69,7 @@ class InvoiceItem(models.Model):
     product = models.ForeignKey('Product', on_delete=models.PROTECT, related_name='invoice_items')
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
 
     @property
@@ -73,12 +77,17 @@ class InvoiceItem(models.Model):
         return self.unit_price * self.quantity
 
     @property
+    def line_taxable(self):
+        taxable = self.line_subtotal - self.discount
+        return taxable if taxable > Decimal('0.00') else Decimal('0.00')
+
+    @property
     def line_gst(self):
-        return (self.line_subtotal * self.gst_rate) / Decimal('100')
+        return (self.line_taxable * self.gst_rate) / Decimal('100')
 
     @property
     def line_total(self):
-        return self.line_subtotal + self.line_gst
+        return self.line_taxable + self.line_gst
 
     def __str__(self):
         return f"{self.product.name} (x{self.quantity})"

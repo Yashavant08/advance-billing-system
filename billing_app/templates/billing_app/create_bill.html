@@ -66,6 +66,31 @@
             border-radius: 16px;
             padding: 16px 20px;
         }
+        .custom-alert {
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+        .custom-alert-danger {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border-color: #fecaca;
+            border-left: 4px solid #ef4444;
+        }
+        .custom-alert-success {
+            background-color: #ecfdf5;
+            color: #065f46;
+            border-color: #a7f3d0;
+            border-left: 4px solid #10b981;
+        }
+        .custom-alert-warning {
+            background-color: #fffbeb;
+            color: #92400e;
+            border-color: #fde68a;
+            border-left: 4px solid #f59e0b;
+        }
         .btn-generate {
             background: linear-gradient(135deg, #059669 0%, #10b981 100%);
             border: none;
@@ -94,12 +119,35 @@
             </div>
 
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-4 small py-2 shadow-sm border-0 mb-4" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
+                <div class="mb-4">
+                    {% for message in messages %}
+                        {% if message.tags == 'error' %}
+                            <div class="alert custom-alert custom-alert-danger alert-dismissible fade show d-flex align-items-center justify-content-between mb-2" role="alert">
+                                <div class="d-flex align-items-center gap-2 pe-2">
+                                    <i class="fa-solid fa-circle-exclamation text-danger fs-5 flex-shrink-0"></i>
+                                    <span>{{ message }}</span>
+                                </div>
+                                <button type="button" class="btn-close position-static ms-2" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% elif message.tags == 'success' %}
+                            <div class="alert custom-alert custom-alert-success alert-dismissible fade show d-flex align-items-center justify-content-between mb-2" role="alert">
+                                <div class="d-flex align-items-center gap-2 pe-2">
+                                    <i class="fa-solid fa-circle-check text-success fs-5 flex-shrink-0"></i>
+                                    <span>{{ message }}</span>
+                                </div>
+                                <button type="button" class="btn-close position-static ms-2" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% else %}
+                            <div class="alert custom-alert custom-alert-warning alert-dismissible fade show d-flex align-items-center justify-content-between mb-2" role="alert">
+                                <div class="d-flex align-items-center gap-2 pe-2">
+                                    <i class="fa-solid fa-triangle-exclamation text-warning fs-5 flex-shrink-0"></i>
+                                    <span>{{ message }}</span>
+                                </div>
+                                <button type="button" class="btn-close position-static ms-2" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             {% endif %}
 
             <form method="POST" id="billForm">
@@ -226,6 +274,14 @@
                 const selectedOption = select.options[select.selectedIndex];
                 const price = parseFloat(selectedOption?.dataset.price || 0);
                 const gstRate = parseFloat(selectedOption?.dataset.gst || 0);
+                const stock = parseInt(selectedOption?.dataset.stock || 0, 10);
+
+                if (select.value && stock > 0) {
+                    qtyInput.max = stock;
+                } else {
+                    qtyInput.removeAttribute('max');
+                }
+
                 const qty = Math.max(0, parseInt(qtyInput.value || 0, 10));
 
                 const lineSub = price * qty;
@@ -247,8 +303,12 @@
             const firstRow = itemsContainer.querySelector('.item-row');
             const newRow = firstRow.cloneNode(true);
 
-            newRow.querySelector('.product-select').selectedIndex = 0;
-            newRow.querySelector('.qty-input').value = 1;
+            const newSelect = newRow.querySelector('.product-select');
+            const newQtyInput = newRow.querySelector('.qty-input');
+
+            newSelect.selectedIndex = 0;
+            newQtyInput.value = 1;
+            newQtyInput.removeAttribute('max');
             newRow.querySelector('.line-total').textContent = '₹0.00';
 
             itemsContainer.appendChild(newRow);
@@ -277,8 +337,10 @@
                 recalculateBill();
             } else {
                 const row = rows[0];
+                const qtyInput = row.querySelector('.qty-input');
                 row.querySelector('.product-select').selectedIndex = 0;
-                row.querySelector('.qty-input').value = 1;
+                qtyInput.value = 1;
+                qtyInput.removeAttribute('max');
                 recalculateBill();
             }
         });
