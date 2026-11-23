@@ -746,3 +746,187 @@ def create_invoice(request):
         'item_form': item_form,
         'products': products,
     })
+
+from io import BytesIO
+from django.http import HttpResponse
+from django.template.loader import get_template
+from xhtml2pdf import pisa
+
+
+def invoice_pdf_view(request, invoice_id):
+    invoice = ...  # Invoice + items fetch karo
+    template = get_template('billing/invoice_pdf.html')
+    html = template.render({'invoice': invoice})
+
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="invoice_{invoice.id}.pdf"'
+        return response
+    return HttpResponse("Error generating PDF", status=500)
+from decimal import Decimal, InvalidOperation
+from io import BytesIO
+import time
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import F
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import get_template
+from xhtml2pdf import pisa
+
+from .models import Customer, Invoice, InvoiceItem, Product
+
+
+def _generate_invoice_number():
+    return f"INV-{int(time.time())}"
+
+
+@login_required
+def create_invoice(request):
+    customers = Customer.objects.filter(distributor=request.user).order_by('name')
+    products = Product.objects.filter(distributor=request.user).order_by('name')
+
+    if request.method == 'POST':
+        customer_id = request.POST.get('customer')
+        invoice_number = (request.POST.get('invoice_number') or '').strip() or _generate_invoice_number()
+
+        product_ids = request.POST.getlist('product_id[]')
+        quantities = request.POST.getlist('quantity[]')
+        discounts = request.POST.getlist('discount[]')
+
+        customer = get_object_or_404(Customer, id=customer_id, distributor=request.user)
+
+        if not product_ids:
+            messages.error(request, "Kam se kam ek product add karo.")
+            return render(request, 'billing/create_invoice.html', {
+                'customers': customers,
+                'products': products,
+            })
+
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.create(
+                    distributor=request.user,
+                    customer=customer,
+                    invoice_number=invoice_number,
+                )
+
+                subtotal_sum = Decimal('0.00')
+                discount_sum = Decimal('0.00')
+                gst_sum = Decimal('0.00')
+                total_sum = Decimal('0.00')
+                created_any = False
+
+                for idx, prod_id in enumerate(product_ids):
+                    if not prod_id:
+                        continue
+
+                    qty = int(quantities[idx]) if idx < len(quantities) and quantities[idx] else 0
+                    if qty <= 0:
+                        continue
+
+                    raw_disc = discounts[idx] if idx < len(discounts) and discounts[idx] else '0.00'
+                    disc = Decimal(raw_disc)
+                    if disc < Decimal('0.00'):
+                        disc = Decimal('0.00')
+
+                    product = Product.objects.select_for_update().get(
+                        id=prod_id,
+                        distributor=request.user,
+                    )
+
+                    if product.stock < qty:
+                        raise ValueError(f"'{product.name}' ka sirf {product.stock} stock available hai.")
+
+                    product.stock = F('stock') - qty
+                    product.save(update_fields=['stock'])
+
+                    unit_price = product.price
+                    gst_rate = product.gst_rate
+
+                    line_sub = unit_price * qty
+                    line_taxable = line_sub - disc if (line_sub - disc) > Decimal('0.00') else Decimal('0.00')
+                    line_gst = (line_taxable * gst_rate) / Decimal('100')
+                    line_tot = line_taxable + line_gst
+
+                    InvoiceItem.objects.create(
+                        invoice=invoice,
+                        product=product,
+                        quantity=qty,
+                        unit_price=unit_price,
+                        discount=disc,
+                        gst_rate=gst_rate,
+                    )
+
+                    subtotal_sum += line_sub
+                    discount_sum += disc
+                    gst_sum += line_gst
+                    total_sum += line_tot
+                    created_any = True
+
+                if not created_any:
+                    raise ValueError("Valid quantity ke saath kam se kam ek item chuno.")
+
+                invoice.subtotal = subtotal_sum
+                invoice.discount_amount = discount_sum
+                invoice.gst_amount = gst_sum
+                invoice.total_amount = total_sum
+                invoice.save(update_fields=['subtotal', 'discount_amount', 'gst_amount', 'total_amount'])
+
+            messages.success(
+                request,
+                f"Invoice #{invoice.invoice_number} successfully save ho gaya! Total: ₹{invoice.total_amount:.2f}"
+            )
+            return redirect('invoice_detail', invoice_id=invoice.id)
+
+        except (ValueError, InvalidOperation) as exc:
+            messages.error(request, str(exc))
+
+    return render(request, 'billing/create_invoice.html', {
+        'customers': customers,
+        'products': products,
+    })
+
+@login_required
+def invoice_pdf(request, invoice_id):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('customer', 'distributor').prefetch_related('items__product'),
+        id=invoice_id,
+        distributor=request.user,
+    )
+
+    template = get_template('billing_app/invoice_pdf.html')
+    html = template.render({
+        'invoice': invoice,
+        'items': invoice.items.all(),
+        'distributor': invoice.distributor,
+        'customer': invoice.customer,
+    })
+
+    pdf_buffer = BytesIO()
+    pisa_status = pisa.pisaDocument(BytesIO(html.encode('UTF-8')), pdf_buffer)
+
+    if pisa_status.err:
+        return HttpResponse("PDF generate karne mein error aaya.", status=500)
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="invoice_{invoice.invoice_number or invoice.pk}.pdf"'
+    return response
+@login_required
+def invoice_detail_view(request, invoice_id):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('customer', 'distributor').prefetch_related('items__product'),
+        id=invoice_id,
+        distributor=request.user,
+    )
+    return render(request, 'billing/invoice_detail.html', {
+        'invoice': invoice,
+        'items': invoice.items.all(),
+        'distributor': invoice.distributor,
+        'customer': invoice.customer,
+    })
