@@ -785,6 +785,8 @@ from .models import Customer, Invoice, InvoiceItem, Product
 def _generate_invoice_number():
     return f"INV-{int(time.time())}"
 
+from django.db.models import Q
+
 
 @login_required
 def create_invoice(request):
@@ -792,24 +794,54 @@ def create_invoice(request):
     products = Product.objects.filter(distributor=request.user).order_by('name')
 
     if request.method == 'POST':
-        customer_id = request.POST.get('customer')
+        customer_name = (request.POST.get('customer_name') or '').strip()
+        customer_phone = (request.POST.get('customer_phone') or '').strip()
+        customer_address = (request.POST.get('customer_address') or '').strip()
         invoice_number = (request.POST.get('invoice_number') or '').strip() or _generate_invoice_number()
 
         product_ids = request.POST.getlist('product_id[]')
         quantities = request.POST.getlist('quantity[]')
         discounts = request.POST.getlist('discount[]')
 
-        customer = get_object_or_404(Customer, id=customer_id, distributor=request.user)
+        if not customer_name:
+            messages.error(request, "Customer name enter karo.")
+            return render(request, 'billing_app/create_invoice.html', {
+                'customers': customers,
+                'products': products,
+            })
 
         if not product_ids:
             messages.error(request, "Kam se kam ek product add karo.")
-            return render(request, 'billing/create_invoice.html', {
+            return render(request, 'billing_app/create_invoice.html', {
                 'customers': customers,
                 'products': products,
             })
 
         try:
             with transaction.atomic():
+                customer = Customer.objects.filter(
+                    distributor=request.user,
+                    name__iexact=customer_name,
+                ).first()
+
+                if customer is None:
+                    customer = Customer.objects.create(
+                        distributor=request.user,
+                        name=customer_name,
+                        phone=customer_phone,
+                        address=customer_address,
+                    )
+                else:
+                    updated_fields = []
+                    if customer_phone and customer.phone != customer_phone:
+                        customer.phone = customer_phone
+                        updated_fields.append('phone')
+                    if customer_address and customer.address != customer_address:
+                        customer.address = customer_address
+                        updated_fields.append('address')
+                    if updated_fields:
+                        customer.save(update_fields=updated_fields)
+
                 invoice = Invoice.objects.create(
                     distributor=request.user,
                     customer=customer,
@@ -887,36 +919,90 @@ def create_invoice(request):
         except (ValueError, InvalidOperation) as exc:
             messages.error(request, str(exc))
 
-    return render(request, 'billing/create_invoice.html', {
+    return render(request, 'billing_app/create_invoice.html', {
         'customers': customers,
         'products': products,
     })
 
-@login_required
-def invoice_pdf(request, invoice_id):
-    invoice = get_object_or_404(
-        Invoice.objects.select_related('customer', 'distributor').prefetch_related('items__product'),
-        id=invoice_id,
-        distributor=request.user,
+def _build_invoice_qr_payload(invoice, items):
+    product_summary_parts = []
+    total_qty = 0
+
+    for item in items:
+        qty = item.quantity or 0
+        total_qty += qty
+        prod_name = item.product.name if item.product else "Item"
+        product_summary_parts.append(f"{prod_name} (x{qty})")
+
+    product_summary = ", ".join(product_summary_parts) if product_summary_parts else "No Items"
+    customer_name = invoice.customer.name if invoice.customer else "Walk-in Customer"
+    created_str = invoice.created_at.strftime("%d-%b-%Y") if invoice.created_at else ""
+
+    qr_text = (
+        f"Invoice: {invoice.invoice_number}\n"
+        f"Customer: {customer_name}\n"
+        f"Date: {created_str}\n"
+        f"Items Count: {total_qty}\n"
+        f"Products: {product_summary}\n"
+        f"Total Bill: Rs. {invoice.total_amount:.2f}"
     )
 
-    template = get_template('billing_app/invoice_pdf.html')
-    html = template.render({
-        'invoice': invoice,
-        'items': invoice.items.all(),
-        'distributor': invoice.distributor,
-        'customer': invoice.customer,
+    qr = qrcode.QRCode(version=1, box_size=4, border=2)
+    qr.add_data(qr_text)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return {
+        "invoice": invoice,
+        "items": items,
+        "customer_name": customer_name,
+        "product_count": total_qty,
+        "product_summary": product_summary,
+        "total_bill": invoice.total_amount,
+        "date": invoice.created_at,
+        "qr_base64": qr_base64,
+    }
+
+
+@login_required
+def invoice_list_view(request):
+    query = (request.GET.get("q") or "").strip()
+
+    invoices_qs = (
+        Invoice.objects.filter(distributor=request.user)
+        .select_related("customer", "distributor")
+        .prefetch_related("items__product")
+        .order_by("-created_at")
+    )
+
+    if query:
+        invoices_qs = invoices_qs.filter(
+            Q(invoice_number__icontains=query)
+            | Q(customer__name__icontains=query)
+            | Q(customer__phone__icontains=query)
+            | Q(items__product__name__icontains=query)
+        ).distinct()
+
+    paginator = Paginator(invoices_qs, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    invoice_rows = []
+    for inv in page_obj:
+        items_list = list(inv.items.all())
+        invoice_rows.append(_build_invoice_qr_payload(inv, items_list))
+
+    return render(request, "billing_app/invoice_list.html", {
+        "page_obj": page_obj,
+        "invoice_rows": invoice_rows,
+        "search_query": query,
     })
 
-    pdf_buffer = BytesIO()
-    pisa_status = pisa.pisaDocument(BytesIO(html.encode('UTF-8')), pdf_buffer)
 
-    if pisa_status.err:
-        return HttpResponse("PDF generate karne mein error aaya.", status=500)
-
-    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="invoice_{invoice.invoice_number or invoice.pk}.pdf"'
-    return response
 @login_required
 def invoice_detail_view(request, invoice_id):
     invoice = get_object_or_404(
@@ -924,9 +1010,47 @@ def invoice_detail_view(request, invoice_id):
         id=invoice_id,
         distributor=request.user,
     )
-    return render(request, 'billing/invoice_detail.html', {
+    items_list = list(invoice.items.all())
+    payload = _build_invoice_qr_payload(invoice, items_list)
+
+    return render(request, 'billing_app/invoice_detail.html', {
         'invoice': invoice,
-        'items': invoice.items.all(),
+        'items': items_list,
         'distributor': invoice.distributor,
         'customer': invoice.customer,
+        'product_count': payload['product_count'],
+        'product_summary': payload['product_summary'],
+        'qr_base64': payload['qr_base64'],
     })
+
+
+@login_required
+def invoice_pdf(request, invoice_id):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "distributor").prefetch_related("items__product"),
+        id=invoice_id,
+        distributor=request.user,
+    )
+    items_list = list(invoice.items.all())
+    payload = _build_invoice_qr_payload(invoice, items_list)
+
+    template = get_template("billing_app/invoice_pdf.html")
+    html = template.render({
+        "invoice": invoice,
+        "items": items_list,
+        "distributor": invoice.distributor,
+        "customer": invoice.customer,
+        "product_count": payload["product_count"],
+        "product_summary": payload["product_summary"],
+        "qr_base64": payload["qr_base64"],
+    })
+
+    pdf_buffer = BytesIO()
+    pisa_status = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), pdf_buffer)
+
+    if pisa_status.err:
+        return HttpResponse("PDF generate karne mein error aaya.", status=500)
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="invoice_{invoice.invoice_number or invoice.pk}.pdf"'
+    return response

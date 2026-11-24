@@ -89,6 +89,17 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
         }
+        .btn-hero-outline {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .btn-hero-outline:hover {
+            background-color: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
 
         /* Modern Action Cards */
         .action-card {
@@ -158,12 +169,21 @@
                 <span>Advance Billing <span class="text-primary fw-normal">Pro</span></span>
             </a>
             <div class="d-flex align-items-center gap-2 gap-sm-3">
+                <a href="{% url 'invoice_list' %}" class="btn btn-outline-light btn-sm px-3 py-2 rounded-pill fw-medium d-none d-sm-inline-flex align-items-center gap-1">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Invoices</span>
+                </a>
                 <div class="dropdown">
                     <button class="text-light user-pill d-inline-flex align-items-center gap-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fa-solid fa-circle-user text-info"></i>
                         <span class="fw-semibold">{{ request.user.first_name|default:request.user.username }}</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-2">
+                        <li>
+                            <a class="dropdown-item py-2 fw-medium" href="{% url 'invoice_list' %}">
+                                <i class="fa-solid fa-file-invoice me-2 text-success"></i>All Invoices
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item py-2 fw-medium" href="{% url 'profile' %}">
                                 <i class="fa-solid fa-user-pen me-2 text-primary"></i>Edit Profile
@@ -184,7 +204,7 @@
         <!-- Welcome Banner -->
         <section class="welcome-banner p-4 p-md-5 mb-4 text-white">
             <div class="row align-items-center g-4">
-                <div class="col-lg-8">
+                <div class="col-lg-7">
                     <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-3 py-1.5 mb-3 fw-medium">
                         <i class="fa-solid fa-sparkles me-1"></i> Distributor Control Panel
                     </span>
@@ -193,7 +213,10 @@
                         Manage your product inventory with search &amp; pagination, generate instant QR-enabled invoices, and organize customer records.
                     </p>
                 </div>
-                <div class="col-lg-4 text-lg-end">
+                <div class="col-lg-5 text-lg-end d-flex flex-wrap justify-content-lg-end gap-2">
+                    <a href="{% url 'invoice_list' %}" class="btn btn-hero-outline fw-semibold px-4 py-2.5 rounded-pill">
+                        <i class="fa-solid fa-file-invoice me-2"></i> View Invoices
+                    </a>
                     <a href="{% url 'create_bill' %}" class="btn btn-hero-light fw-semibold px-4 py-2.5 rounded-pill shadow-sm">
                         <i class="fa-solid fa-qrcode text-primary me-2"></i> Quick Generate Bill
                     </a>
@@ -242,18 +265,25 @@
                 </div>
             </div>
 
-            <!-- Create Bill & QR -->
+            <!-- Invoices & QR -->
             <div class="col-md-6 col-lg-3">
                 <div class="action-card p-4 h-100 d-flex flex-column">
                     <div class="icon-box icon-green">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
                     </div>
-                    <h3 class="h5 fw-bold text-dark mb-2">Create Bill &amp; QR</h3>
-                    <p class="text-muted small mb-4">Generate customer invoices with instant scannable payment QR codes.</p>
-                    <a href="{% url 'create_bill' %}" class="btn btn-success btn-modern mt-auto">
-                        <span>Create Bill</span>
-                        <i class="fa-solid fa-arrow-right arrow-slide"></i>
-                    </a>
+                    <h3 class="h5 fw-bold text-dark mb-2">Invoices &amp; QR</h3>
+                    <p class="text-muted small mb-4">Create GST invoices, browse paginated invoice records with QR codes, and export PDFs.</p>
+
+                    <div class="mt-auto d-flex flex-column gap-2">
+                        <a href="{% url 'create_invoice' %}" class="btn btn-success btn-modern w-100">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Create Invoice</span>
+                        </a>
+                        <a href="{% url 'invoice_list' %}" class="btn btn-light btn-modern w-100 border text-success">
+                            <i class="fa-solid fa-table-list"></i>
+                            <span>All Invoices</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 

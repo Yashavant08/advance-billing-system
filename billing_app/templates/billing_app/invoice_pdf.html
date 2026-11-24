@@ -130,8 +130,12 @@
             border: 1px solid #e2e8f0;
             background-color: #f8fafc;
             padding: 8px;
-            width: 126px;
+            width: 132px;
             text-align: center;
+        }
+        .qr-img {
+            width: 104px;
+            height: 104px;
         }
         .qr-caption {
             font-size: 8.2px;
@@ -223,9 +227,11 @@
             <td class="party-card">
                 <div class="card-heading">Invoice Details</div>
                 <span><strong>Reference:</strong> {{ invoice.invoice_number|default:invoice.pk }}</span><br>
-                <span><strong>Total Items:</strong> {{ items|length }}</span><br>
-                <span><strong>Currency:</strong> INR (Rs.)</span><br>
-                <span><strong>Status:</strong> Issued</span>
+                <span><strong>Total Qty:</strong> {{ product_count|default:items|length }}</span><br>
+                {% if product_summary %}
+                    <span><strong>Summary:</strong> {{ product_summary }}</span><br>
+                {% endif %}
+                <span><strong>Currency:</strong> INR (Rs.)</span>
             </td>
         </tr>
     </table>
@@ -276,12 +282,12 @@
             <td class="qr-col">
                 {% if qr_base64 %}
                 <div class="qr-card">
-                    <img src="data:image/png;base64,{{ qr_base64 }}" width="104" height="104" alt="Invoice QR Code">
+                    <img class="qr-img" src="data:image/png;base64,{{ qr_base64 }}" width="104" height="104" alt="Invoice QR Code">
                     <div class="qr-caption">Scan for Invoice Details</div>
                 </div>
                 {% elif invoice.qr_code %}
                 <div class="qr-card">
-                    <img src="{{ invoice.qr_code.path }}" width="104" height="104" alt="Invoice QR Code">
+                    <img class="qr-img" src="{{ invoice.qr_code.path }}" width="104" height="104" alt="Invoice QR Code">
                     <div class="qr-caption">Scan for Invoice Details</div>
                 </div>
                 {% endif %}

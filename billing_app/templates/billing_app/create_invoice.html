@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Invoice &amp; Bill | Advance Billing System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e8f1ff 0%, #f4f8ff 50%, #eef4ff 100%);
+            min-height: 100vh;
+            color: #111827;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .invoice-wrapper {
+            max-width: 780px;
+        }
+
+        .invoice-card {
+            background: #ffffff;
+            border-radius: 22px;
+            border: 1px solid #dbeafe;
+            box-shadow: 0 16px 40px rgba(37, 99, 235, 0.08);
+            padding: 36px 40px;
+        }
+
+        @media (max-width: 576px) {
+            .invoice-card {
+                padding: 24px 18px;
+            }
+        }
+
+        .page-title {
+            font-weight: 800;
+            font-size: 2rem;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+
+        .section-heading {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+
+        .input-group-text {
+            background-color: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-right: none;
+            color: #64748b;
+            border-radius: 10px 0 0 10px;
+        }
+
+        .form-control, .form-select {
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            color: #0f172a;
+        }
+
+        .input-group .form-control {
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-add-item {
+            border: 1.5px solid #10b981;
+            color: #059669;
+            background: #ffffff;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-weight: 600;
+            font-size: 0.88rem;
+        }
+
+        .btn-add-item:hover {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .item-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .btn-del-item {
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            background: #ffffff;
+            border-radius: 10px;
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-del-item:hover {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 22px;
+        }
+
+        .grand-total-text {
+            color: #059669;
+            font-weight: 800;
+            font-size: 1.35rem;
+        }
+
+        .btn-generate {
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-generate:hover {
+            background: linear-gradient(90deg, #059669 0%, #047857 100%);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="py-4 py-md-5">
+<div class="container invoice-wrapper">
+    <div class="invoice-card">
+        <div class="text-center mb-4">
+            <h1 class="page-title mb-1">Create Invoice &amp; Bill</h1>
+            <p class="text-muted mb-0">Add customer details and select products with quantities</p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} rounded-3">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST" id="invoiceForm">
+            {% csrf_token %}
+
+            <!-- Customer Details -->
+            <div class="section-heading mb-3">
+                <i class="fa-solid fa-address-card text-success"></i>
+                <span>Customer Details</span>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="id_customer_name" class="form-label">Customer Name</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
+                        <input
+                            type="text"
+                            name="customer_name"
+                            id="id_customer_name"
+                            class="form-control"
+                            placeholder="Enter customer name"
+                            required
+                        >
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_customer_phone" class="form-label">Customer Phone</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
+                        <input
+                            type="text"
+                            name="customer_phone"
+                            id="id_customer_phone"
+                            class="form-control"
+                            placeholder="Enter phone number"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="id_customer_address" class="form-label">Customer Address</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
+                    <input
+                        type="text"
+                        name="customer_address"
+                        id="id_customer_address"
+                        class="form-control"
+                        placeholder="Enter customer address"
+                    >
+                </div>
+            </div>
+
+            <!-- Invoice Items -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="section-heading">
+                    <i class="fa-solid fa-boxes-stacked text-success"></i>
+                    <span>Invoice Items</span>
+                </div>
+                <button type="button" class="btn btn-add-item" id="addRowBtn">
+                    <i class="fa-solid fa-plus me-1"></i> Add Item
+                </button>
+            </div>
+
+            <div id="itemsContainer">
+                <div class="item-box item-row">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label">Product</label>
+                            <select name="product_id[]" class="form-select item-product" required>
+                                <option value="" data-price="0" data-gst="0">-- Select Product --</option>
+                                {% for p in products %}
+                                    <option value="{{ p.id }}" data-price="{{ p.price }}" data-gst="{{ p.gst_rate }}">
+                                        {{ p.name }} (₹{{ p.price }} | Stock: {{ p.stock }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" name="quantity[]" class="form-control item-qty" min="1" value="1" required>
+                        </div>
+                        
+                        <div class="col-md-2 col-12 d-flex align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="small text-muted">Line Total</div>
+                                <div class="fw-bold fs-6 text-dark">₹<span class="item-total-text">0.00</span></div>
+                            </div>
+                            <button type="button" class="btn-del-item remove-row-btn" title="Remove Item">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Totals Summary -->
+            <div class="summary-card mt-4 mb-4">
+                <div class="d-flex justify-content-between mb-2 text-muted">
+                    <span>Subtotal</span>
+                    <span class="fw-semibold text-dark">₹<span id="summarySubtotal">0.00</span></span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-muted">
+                    <span>Estimated GST</span>
+                    <span class="fw-semibold text-dark">₹<span id="summaryGst">0.00</span></span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                    <span class="fw-bold fs-5 text-dark">Grand Total</span>
+                    <span class="grand-total-text">₹<span id="summaryGrandTotal">0.00</span></span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-generate w-100">
+                <i class="fa-solid fa-circle-check me-2"></i> Generate Invoice
+            </button>
+
+            <div class="text-center mt-3">
+                <a href="{% url 'dashboard' %}" class="text-decoration-none text-muted small">
+                    &larr; Back to Dashboard
+                </a>
+                <span class="mx-2 text-muted small">|</span>
+                <a href="{% url 'invoice_list' %}" class="text-decoration-none text-muted small">
+                    All Invoices
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    const itemsContainer = document.getElementById('itemsContainer');
+    const addRowBtn = document.getElementById('addRowBtn');
+
+    function toNum(val, fallback = 0) {
+        const parsed = parseFloat(val);
+        return Number.isNaN(parsed) ? fallback : parsed;
+    }
+
+    function calculateRow(row) {
+        const selectEl = row.querySelector('.item-product');
+        const selectedOption = selectEl.options[selectEl.selectedIndex];
+        const unitPrice = toNum(selectedOption ? selectedOption.dataset.price : 0, 0);
+        const gstRate = toNum(selectedOption ? selectedOption.dataset.gst : 0, 0);
+        const qty = Math.max(1, parseInt(row.querySelector('.item-qty').value, 10) || 1);
+        const rawDiscount = Math.max(0, toNum(row.querySelector('.item-discount').value, 0));
+
+        const lineSubtotal = unitPrice * qty;
+        const appliedDiscount = Math.min(rawDiscount, lineSubtotal);
+        const taxableAmount = Math.max(0, lineSubtotal - appliedDiscount);
+        const gstAmount = (taxableAmount * gstRate) / 100;
+        const lineTotal = taxableAmount + gstAmount;
+
+        row.querySelector('.item-total-text').textContent = lineTotal.toFixed(2);
+
+        return {
+            subtotal: lineSubtotal,
+            discount: appliedDiscount,
+            gst: gstAmount,
+            total: lineTotal
+        };
+    }
+
+    function recalculateAll() {
+        let subtotal = 0;
+        let gst = 0;
+        let grandTotal = 0;
+
+        itemsContainer.querySelectorAll('.item-row').forEach(row => {
+            const res = calculateRow(row);
+            subtotal += res.subtotal;
+            gst += res.gst;
+            grandTotal += res.total;
+        });
+
+        document.getElementById('summarySubtotal').textContent = subtotal.toFixed(2);
+        document.getElementById('summaryGst').textContent = gst.toFixed(2);
+        document.getElementById('summaryGrandTotal').textContent = grandTotal.toFixed(2);
+    }
+
+    function resetRow(row) {
+        row.querySelector('.item-product').value = '';
+        row.querySelector('.item-qty').value = '1';
+        row.querySelector('.item-discount').value = '0.00';
+        row.querySelector('.item-total-text').textContent = '0.00';
+    }
+
+    function attachRowEvents(row) {
+        row.querySelector('.item-product').addEventListener('change', recalculateAll);
+        row.querySelector('.item-qty').addEventListener('input', recalculateAll);
+        row.querySelector('.item-discount').addEventListener('input', recalculateAll);
+
+        row.querySelector('.remove-row-btn').addEventListener('click', function () {
+            const rows = itemsContainer.querySelectorAll('.item-row');
+            if (rows.length > 1) {
+                row.remove();
+            } else {
+                resetRow(row);
+            }
+            recalculateAll();
+        });
+    }
+
+    addRowBtn.addEventListener('click', function () {
+        const firstRow = itemsContainer.querySelector('.item-row');
+        const newRow = firstRow.cloneNode(true);
+        resetRow(newRow);
+        itemsContainer.appendChild(newRow);
+        attachRowEvents(newRow);
+        recalculateAll();
+    });
+
+    itemsContainer.querySelectorAll('.item-row').forEach(attachRowEvents);
+    recalculateAll();
+})();
+</script>
+</body>
+</html>
