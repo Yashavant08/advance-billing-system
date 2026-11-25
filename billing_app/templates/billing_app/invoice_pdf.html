@@ -5,7 +5,7 @@
     <style>
         @page {
             size: A4;
-            margin: 15mm;
+            margin: 14mm;
         }
         body {
             font-family: Helvetica, Arial, sans-serif;
@@ -220,7 +220,7 @@
             <td class="party-card">
                 <div class="card-heading">Billed To</div>
                 <strong style="font-size: 10.5px; color: #0f172a;">{{ customer.name }}</strong><br>
-                <span>Phone: {{ customer.phone }}</span><br>
+                {% if customer.phone %}<span>Phone: {{ customer.phone }}</span><br>{% endif %}
                 {% if customer.email %}<span>Email: {{ customer.email }}</span><br>{% endif %}
                 {% if customer.address %}<span>Address: {{ customer.address }}</span>{% endif %}
             </td>
@@ -264,7 +264,7 @@
                         {% elif item.total_amount is not None %}
                             Rs. {{ item.total_amount|floatformat:2 }}
                         {% else %}
-                            —
+                            Rs. {{ item.unit_price|default:item.product.price|floatformat:2 }}
                         {% endif %}
                     </strong>
                 </td>
@@ -283,11 +283,6 @@
                 {% if qr_base64 %}
                 <div class="qr-card">
                     <img class="qr-img" src="data:image/png;base64,{{ qr_base64 }}" width="104" height="104" alt="Invoice QR Code">
-                    <div class="qr-caption">Scan for Invoice Details</div>
-                </div>
-                {% elif invoice.qr_code %}
-                <div class="qr-card">
-                    <img class="qr-img" src="{{ invoice.qr_code.path }}" width="104" height="104" alt="Invoice QR Code">
                     <div class="qr-caption">Scan for Invoice Details</div>
                 </div>
                 {% endif %}

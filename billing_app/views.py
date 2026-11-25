@@ -1054,3 +1054,139 @@ def invoice_pdf(request, invoice_id):
     response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="invoice_{invoice.invoice_number or invoice.pk}.pdf"'
     return response
+
+import json
+from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+def _is_valid_email(email: str) -> bool:
+    if "@" not in email:
+        return False
+    local, _, domain = email.partition("@")
+    return bool(local and domain and "." in domain)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def api_admin_register(request):
+    if request.method == "GET":
+        return JsonResponse(
+            {
+                "success": True,
+                "endpoint": "/api/admin/register/",
+                "method": "POST",
+                "required_fields": ["username", "email", "password"],
+                "optional_fields": ["full_name", "phone"],
+            },
+            status=200,
+        )
+
+    try:
+        if request.content_type and "application/json" in request.content_type:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        else:
+            data = request.POST
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse(
+            {"success": False, "message": "Invalid JSON payload."},
+            status=400,
+        )
+
+    if not hasattr(data, "get"):
+        return JsonResponse(
+            {"success": False, "message": "Request body must be a JSON object or form data."},
+            status=400,
+        )
+
+    username = (data.get("username") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    full_name = (data.get("full_name") or "").strip()
+    phone = (data.get("phone") or "").strip()
+
+    errors = {}
+    if not username:
+        errors["username"] = "Username is required."
+    elif len(username) < 3:
+        errors["username"] = "Username must be at least 3 characters long."
+    elif User.objects.filter(username__iexact=username).exists():
+        errors["username"] = "Username already exists."
+
+    if not email:
+        errors["email"] = "Email is required."
+    elif not _is_valid_email(email):
+        errors["email"] = "Enter a valid email address."
+    elif User.objects.filter(email__iexact=email).exists():
+        errors["email"] = "Email is already registered."
+
+    if not password:
+        errors["password"] = "Password is required."
+    elif len(password) < 6:
+        errors["password"] = "Password must be at least 6 characters long."
+
+    if phone and len(phone) > 15:
+        errors["phone"] = "Phone number must be 15 characters or fewer."
+
+    if errors:
+        return JsonResponse(
+            {"success": False, "message": "Validation failed.", "errors": errors},
+            status=400,
+        )
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+            )
+
+            if full_name:
+                parts = full_name.split(" ", 1)
+                user.first_name = parts[0]
+                if len(parts) > 1:
+                    user.last_name = parts[1]
+
+            user.is_staff = True
+            user.save()
+
+            profile, _ = DistributorProfile.objects.get_or_create(
+                user=user,
+                defaults={"phone": phone, "is_verified": True},
+            )
+            if phone and profile.phone != phone:
+                profile.phone = phone
+                profile.save(update_fields=["phone"])
+    except IntegrityError:
+        return JsonResponse(
+            {"success": False, "message": "User with this username or email already exists."},
+            status=400,
+        )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Admin user registered successfully.",
+            "data": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.get_full_name(),
+                "phone": profile.phone,
+                "is_staff": user.is_staff,
+            },
+        },
+        status=201,
+    )
+
+
+def admin_register_page(request):
+    return render(request, "billing_app/admin_register.html")

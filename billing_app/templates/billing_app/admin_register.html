@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Admin | Advance Billing System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e8f1ff 0%, #f4f8ff 55%, #eef4ff 100%);
+            min-height: 100vh;
+            color: #0f172a;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        .register-wrapper {
+            max-width: 520px;
+        }
+        .register-card {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 20px;
+            box-shadow: 0 16px 40px rgba(37, 99, 235, 0.08);
+            padding: 32px 34px;
+        }
+        .form-control {
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+        }
+        .form-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .btn-submit-admin {
+            background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+            border: none;
+            border-radius: 11px;
+            padding: 12px 18px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .btn-submit-admin:hover {
+            background: linear-gradient(90deg, #1d4ed8 0%, #1e40af 100%);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center py-4">
+    <div class="container register-wrapper">
+        <div class="register-card">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-2" style="width: 52px; height: 52px;">
+                    <i class="fa-solid fa-user-shield fs-4"></i>
+                </div>
+                <h2 class="fw-bold mb-1">Admin Registration</h2>
+                <p class="text-muted small mb-0">Create a new admin account via API</p>
+            </div>
+
+            <div id="alertBox" class="d-none alert rounded-3 small mb-3" role="alert"></div>
+
+            <form id="adminRegisterForm" novalidate>
+                <div class="mb-3">
+                    <label for="full_name" class="form-label fw-semibold small">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. Rahul Sharma">
+                    <div class="invalid-feedback" id="err-full_name"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="username" class="form-label fw-semibold small">Username <span class="text-danger">*</span></label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="Choose admin username" required>
+                    <div class="invalid-feedback" id="err-username"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label fw-semibold small">Email Address <span class="text-danger">*</span></label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="admin@example.com" required>
+                    <div class="invalid-feedback" id="err-email"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="phone" class="form-label fw-semibold small">Phone Number</label>
+                    <input type="text" id="phone" name="phone" class="form-control" placeholder="Optional phone number">
+                    <div class="invalid-feedback" id="err-phone"></div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="password" class="form-label fw-semibold small">Password <span class="text-danger">*</span></label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Minimum 6 characters" required>
+                    <div class="invalid-feedback" id="err-password"></div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn btn-submit-admin w-100">
+                    <i class="fa-solid fa-user-plus me-2"></i> Register Admin
+                </button>
+            </form>
+
+            <div class="text-center mt-3">
+                <a href="{% url 'dashboard' %}" class="text-decoration-none text-muted small">&larr; Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const form = document.getElementById("adminRegisterForm");
+        const submitBtn = document.getElementById("submitBtn");
+        const alertBox = document.getElementById("alertBox");
+        const fields = ["full_name", "username", "email", "phone", "password"];
+
+        function clearErrors() {
+            alertBox.className = "d-none alert rounded-3 small mb-3";
+            alertBox.textContent = "";
+            fields.forEach((name) => {
+                const input = document.getElementById(name);
+                const errEl = document.getElementById("err-" + name);
+                if (input) input.classList.remove("is-invalid");
+                if (errEl) errEl.textContent = "";
+            });
+        }
+
+        function showAlert(type, message) {
+            alertBox.className = `alert alert-${type} rounded-3 small mb-3`;
+            alertBox.textContent = message;
+        }
+
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            clearErrors();
+
+            const payload = {
+                full_name: document.getElementById("full_name").value.trim(),
+                username: document.getElementById("username").value.trim(),
+                email: document.getElementById("email").value.trim(),
+                phone: document.getElementById("phone").value.trim(),
+                password: document.getElementById("password").value
+            };
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registering...';
+
+            try {
+                const res = await fetch("{% url 'api_admin_register' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    showAlert("success", data.message || "Admin user registered successfully.");
+                    form.reset();
+                } else {
+                    showAlert("danger", data.message || "Please fix the errors below.");
+                    if (data.errors) {
+                        Object.entries(data.errors).forEach(([field, msg]) => {
+                            const input = document.getElementById(field);
+                            const errEl = document.getElementById("err-" + field);
+                            if (input) input.classList.add("is-invalid");
+                            if (errEl) errEl.textContent = msg;
+                        });
+                    }
+                }
+            } catch (err) {
+                showAlert("danger", "Network error occurred while registering admin.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-user-plus me-2"></i> Register Admin';
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
