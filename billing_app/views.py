@@ -19,21 +19,55 @@ import qrcode
 
 from .models import Customer, DistributorProfile, Invoice, InvoiceItem, Product
 
+import re
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.shortcuts import redirect, render
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+def _normalize_phone(value: str) -> str:
+    return re.sub(r"\D", "", value or "")
+
 
 def register_view(request):
-    if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        email = request.POST.get('email', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        password = request.POST.get('password', '')
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        email = request.POST.get("email", "").strip().lower()
+        raw_phone = request.POST.get("phone", "").strip()
+        password = request.POST.get("password", "")
+        confirm_password = request.POST.get("confirm_password", "")
+
+        if not name or not email or not raw_phone:
+            messages.error(request, "Please fill in all required fields.")
+            return redirect("register")
+
+        digits = _normalize_phone(raw_phone)
+        if len(digits) < 10:
+            messages.error(request, "Please enter a valid 10-digit mobile number.")
+            return redirect("register")
+
+        clean_phone = digits[-10:]
 
         if len(password) < 6:
             messages.error(request, "Password must be at least 6 characters long.")
-            return redirect('register')
+            return redirect("register")
 
-        if User.objects.filter(username=email).exists():
-            messages.error(request, "Email already registered!")
-            return redirect('register')
+        if confirm_password and password != confirm_password:
+            messages.error(request, "Password and Confirm Password do not match.")
+            return redirect("register")
+
+        if User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists():
+            messages.error(request, "This email address is already registered.")
+            return redirect("register")
+
+        if DistributorProfile.objects.filter(phone__endswith=clean_phone).exists():
+            messages.error(request, "This mobile number is already linked to another account.")
+            return redirect("register")
 
         user = User.objects.create_user(
             username=email,
@@ -41,37 +75,32 @@ def register_view(request):
             password=password,
             first_name=name,
         )
-        DistributorProfile.objects.create(user=user, phone=phone)
+        DistributorProfile.objects.create(user=user, phone=clean_phone)
 
-        messages.success(request, "Registration successful! Please login.")
-        return redirect('login')
+        messages.success(request, "Registration successful! You can now sign in with your email or mobile number.")
+        return redirect("login")
 
-    return render(request, 'billing_app/register.html')
-
+    return render(request, "billing_app/register.html")
 
 def login_view(request):
-    if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
+    if request.method == "POST":
+        identifier = request.POST.get("email", "").strip()
+        password = request.POST.get("password", "")
 
-        matched_user = (
-            User.objects.filter(username__iexact=email).first()
-            or User.objects.filter(email__iexact=email).first()
-        )
-        auth_username = matched_user.username if matched_user else email
+        matched_user = _find_user_by_email_or_mobile(identifier)
+        auth_username = matched_user.username if matched_user else identifier
 
         user = authenticate(request, username=auth_username, password=password)
 
         if user is not None:
             login(request, user)
             messages.success(request, "Login successful!")
-            return redirect('dashboard')
-        else:
-            messages.error(request, "Invalid email or password.")
-            return redirect('login')
+            return redirect("dashboard")
 
-    return render(request, 'billing_app/login.html')
+        messages.error(request, "Invalid email/mobile number or password.")
+        return redirect("login")
 
+    return render(request, "billing_app/login.html")
 
 def logout_view(request):
     logout(request)
@@ -1190,3 +1219,381 @@ def api_admin_register(request):
 
 def admin_register_page(request):
     return render(request, "billing_app/admin_register.html")
+
+import random
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+def _generate_otp() -> str:
+    return f"{random.randint(100000, 999999)}"
+
+
+def _find_admin_user(identifier: str):
+    cleaned = (identifier or "").strip()
+    if not cleaned:
+        return None
+    user = (
+        User.objects.filter(email__iexact=cleaned).first()
+        or User.objects.filter(username__iexact=cleaned).first()
+    )
+    if user and (user.is_staff or user.is_superuser):
+        return user
+    return None
+
+
+@require_http_methods(["GET", "POST"])
+def forgot_password_view(request):
+    if request.method == "POST":
+        identifier = request.POST.get("email", "").strip()
+        user = _find_admin_user(identifier)
+
+        if not user:
+            messages.error(request, "No admin account found with that email or username.")
+            return redirect("forgot_password")
+
+        profile, _ = DistributorProfile.objects.get_or_create(
+            user=user,
+            defaults={"phone": "", "is_verified": True},
+        )
+        otp = _generate_otp()
+        profile.otp = otp
+        profile.save(update_fields=["otp"])
+
+        request.session["recovery_user_id"] = user.id
+
+        # Task 2 mein yahan email sending function connect hoga:
+        # send_recovery_otp_email(user, otp)
+
+        messages.success(
+            request,
+            "OTP generated for password recovery. Please enter the OTP to reset your password.",
+        )
+        return redirect("reset_password")
+
+    return render(request, "billing_app/forgot_password.html")
+
+
+@require_http_methods(["GET", "POST"])
+def reset_password_view(request):
+    recovery_user_id = request.session.get("recovery_user_id")
+    if not recovery_user_id:
+        messages.error(request, "Please request a password recovery OTP first.")
+        return redirect("forgot_password")
+
+    user = User.objects.filter(id=recovery_user_id).first()
+    profile = DistributorProfile.objects.filter(user=user).first() if user else None
+
+    if not user or not profile:
+        request.session.pop("recovery_user_id", None)
+        messages.error(request, "Invalid recovery session. Please try again.")
+        return redirect("forgot_password")
+
+    if request.method == "POST":
+        otp_input = (request.POST.get("otp") or "").strip()
+        new_password = request.POST.get("new_password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
+
+        if not otp_input or profile.otp != otp_input:
+            messages.error(request, "Invalid or expired OTP.")
+            return redirect("reset_password")
+
+        if len(new_password) < 6:
+            messages.error(request, "New password must be at least 6 characters long.")
+            return redirect("reset_password")
+
+        if new_password != confirm_password:
+            messages.error(request, "Passwords do not match.")
+            return redirect("reset_password")
+
+        user.set_password(new_password)
+        user.save()
+
+        profile.otp = None
+        profile.save(update_fields=["otp"])
+        request.session.pop("recovery_user_id", None)
+
+        messages.success(request, "Password reset successful! You can now log in.")
+        return redirect("login")
+
+    return render(request, "billing_app/reset_password.html", {"user": user})
+
+from django.conf import settings
+from django.core.mail import send_mail
+
+
+def send_recovery_otp_email(user, otp: str) -> bool:
+    if not user.email:
+        return False
+
+    subject = "Password Recovery OTP | Advance Billing System"
+    message = (
+        f"Hello {user.get_full_name() or user.username},\n\n"
+        f"Your One-Time Password (OTP) to reset your admin password is: {otp}\n\n"
+        f"Please enter this OTP on the password reset page to set a new password.\n"
+        f"If you did not request this, please ignore this email.\n\n"
+        f"Regards,\n"
+        f"Advance Billing System"
+    )
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", settings.EMAIL_HOST_USER)
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=from_email,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return True
+
+import random
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+def _generate_otp() -> str:
+    return f"{random.randint(100000, 999999)}"
+
+
+def _find_admin_user(identifier: str):
+    cleaned = (identifier or "").strip()
+    if not cleaned:
+        return None
+    user = (
+        User.objects.filter(email__iexact=cleaned).first()
+        or User.objects.filter(username__iexact=cleaned).first()
+    )
+    if user and (user.is_staff or user.is_superuser):
+        return user
+    return None
+
+
+def send_recovery_otp_email(user, otp: str) -> bool:
+    if not user.email:
+        return False
+
+    subject = "Password Recovery OTP | Advance Billing System"
+    message = (
+        f"Hello {user.get_full_name() or user.username},\n\n"
+        f"Your One-Time Password (OTP) to reset your admin password is: {otp}\n\n"
+        f"Please enter this OTP on the password reset page to set a new password.\n"
+        f"If you did not request this, please ignore this email.\n\n"
+        f"Regards,\n"
+        f"Advance Billing System"
+    )
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "EMAIL_HOST_USER", "")
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=from_email,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return True
+
+
+@require_http_methods(["GET", "POST"])
+def forgot_password_view(request):
+    if request.method == "POST":
+        identifier = (request.POST.get("email") or request.POST.get("identifier") or "").strip()
+        user = _find_admin_user(identifier)
+
+        if not user:
+            messages.error(request, "No admin account found with that email or username.")
+            return redirect("forgot_password")
+
+        if not user.email:
+            messages.error(request, "This admin account does not have an email address configured.")
+            return redirect("forgot_password")
+
+        profile, _ = DistributorProfile.objects.get_or_create(
+            user=user,
+            defaults={"phone": "", "is_verified": True},
+        )
+        otp = _generate_otp()
+        profile.otp = otp
+        profile.save(update_fields=["otp"])
+
+        try:
+            send_recovery_otp_email(user, otp)
+        except Exception:
+            messages.error(
+                request,
+                "Unable to send OTP email right now. Please check email configuration.",
+            )
+            return redirect("forgot_password")
+
+        request.session["recovery_user_id"] = user.id
+        messages.success(request, f"A 6-digit OTP has been sent to {user.email}.")
+        return redirect("reset_password")
+
+    return render(request, "billing_app/forgot_password.html")
+
+
+
+import re
+from django.contrib import messages
+from django.contrib.auth import authenticate, get_user_model, login
+from django.shortcuts import redirect, render
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+def _normalize_phone(value: str) -> str:
+    return re.sub(r"\D", "", value or "")
+
+
+def _find_user_by_email_or_mobile(identifier: str):
+    cleaned = (identifier or "").strip()
+    if not cleaned:
+        return None
+
+    # 1. Primary: Email se check karo
+    user_by_email = User.objects.filter(email__iexact=cleaned).first()
+    if user_by_email:
+        return user_by_email
+
+    # 2. Secondary: Mobile number se check karo (DistributorProfile.phone)
+    digits = _normalize_phone(cleaned)
+    if len(digits) >= 7:
+        last_ten = digits[-10:]
+        profile = (
+            DistributorProfile.objects.select_related("user")
+            .filter(phone__icontains=last_ten)
+            .first()
+        )
+        if profile and profile.user:
+            return profile.user
+
+    return None
+
+
+def _find_admin_user(identifier: str):
+    user = _find_user_by_email_or_mobile(identifier)
+    if user and (user.is_staff or user.is_superuser):
+        return user
+    return None
+
+
+
+from django.contrib import messages
+from django.contrib.auth import get_user_model, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods
+
+from .models import DistributorProfile
+
+User = get_user_model()
+
+
+@login_required
+def change_password_view(request):
+    if request.method == "POST":
+        current_password = request.POST.get("current_password") or ""
+        new_password = request.POST.get("new_password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
+
+        if not current_password:
+            messages.error(request, "Please enter your current password.")
+            return redirect("change_password")
+
+        if not request.user.check_password(current_password):
+            messages.error(
+                request,
+                "Current password is incorrect. If you forgot it, use Forgot Password below.",
+            )
+            return redirect("change_password")
+
+        if len(new_password) < 6:
+            messages.error(request, "New password must be at least 6 characters long.")
+            return redirect("change_password")
+
+        if new_password != confirm_password:
+            messages.error(request, "New password and confirm password do not match.")
+            return redirect("change_password")
+
+        if new_password == current_password:
+            messages.warning(request, "New password should be different from your current password.")
+            return redirect("change_password")
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=["password"])
+        update_session_auth_hash(request, request.user)
+
+        profile = DistributorProfile.objects.filter(user=request.user).first()
+        if profile and profile.otp:
+            profile.otp = None
+            profile.save(update_fields=["otp"])
+
+        messages.success(request, "Password updated successfully!")
+        return redirect("dashboard")
+
+    return render(request, "billing_app/change_password.html")
+
+
+@require_http_methods(["GET", "POST"])
+def reset_password_view(request):
+    recovery_user_id = request.session.get("recovery_user_id")
+    if not recovery_user_id:
+        messages.error(request, "Please request a recovery OTP first.")
+        return redirect("forgot_password")
+
+    user = User.objects.filter(id=recovery_user_id).first()
+    profile = DistributorProfile.objects.filter(user=user).first() if user else None
+
+    if not user or not profile:
+        request.session.pop("recovery_user_id", None)
+        messages.error(request, "Recovery session expired or invalid. Please try again.")
+        return redirect("forgot_password")
+
+    if request.method == "POST":
+        otp_input = (request.POST.get("otp") or "").strip()
+        new_password = request.POST.get("new_password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
+
+        stored_otp = (profile.otp or "").strip()
+        if not otp_input or not stored_otp or stored_otp != otp_input:
+            messages.error(request, "Invalid OTP. Please check the code sent to your email.")
+            return redirect("reset_password")
+
+        if len(new_password) < 6:
+            messages.error(request, "New password must be at least 6 characters long.")
+            return redirect("reset_password")
+
+        if new_password != confirm_password:
+            messages.error(request, "New password and confirm password do not match.")
+            return redirect("reset_password")
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        profile.otp = None
+        profile.save(update_fields=["otp"])
+        request.session.pop("recovery_user_id", None)
+
+        messages.success(request, "Password reset successful! Please log in with your new password.")
+        return redirect("login")
+
+    return render(
+        request,
+        "billing_app/reset_password.html",
+        {"recovery_email": user.email},
+    )

@@ -2,112 +2,476 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login | Advance Billing System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | Advance Billing System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+        :root {
+            --primary: #1d4ed8;
+            --primary-hover: #1e40af;
+            --primary-soft: #eff6ff;
+            --surface: #ffffff;
+            --bg-canvas: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --focus-ring: rgba(29, 78, 216, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-canvas);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.10) 0px, transparent 50%);
             min-height: 100vh;
-        }
-        .auth-card { 
-            border: none; 
-            border-radius: 24px; 
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); 
-            background: #ffffff; 
-        }
-        .icon-badge {
-            width: 64px;
-            height: 64px;
-            background: #e0f2fe;
-            color: #0284c7;
+            margin: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
-            margin: 0 auto 20px auto;
-            font-size: 24px;
-            box-shadow: 0 8px 16px rgba(2, 132, 199, 0.15);
+            padding: 24px 16px;
+            color: var(--text-primary);
         }
-        .form-control {
-            background-color: #f8fafc;
-            border: 1.5px solid #e2e8f0;
-            padding: 12px 18px;
-            font-size: 0.95rem;
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
         }
-        .form-control:focus {
-            background-color: #fff;
-            border-color: #0284c7;
-            box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
+
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 32px 28px;
+            box-shadow:
+                0 10px 25px -5px rgba(15, 23, 42, 0.06),
+                0 4px 10px -6px rgba(15, 23, 42, 0.04);
         }
-        .btn-primary-custom {
-            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-            border: none;
-            padding: 12px;
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .brand-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 21px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(29, 78, 216, 0.12);
+        }
+
+        .brand-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 0 0 6px;
+            color: var(--text-primary);
+        }
+
+        .brand-subtitle {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .field-group {
+            margin-bottom: 16px;
+        }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
             font-weight: 600;
-            border-radius: 50rem;
-            transition: all 0.3s ease;
+            color: var(--text-primary);
+            margin-bottom: 7px;
         }
-        .btn-primary-custom:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
+
+        .field-hint {
+            font-size: 0.74rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .leading-icon {
+            position: absolute;
+            left: 14px;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            pointer-events: none;
+            transition: color 0.2s ease;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 42px 0 40px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            background-color: #ffffff;
+            border: 1.5px solid var(--border-color);
+            border-radius: 11px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .form-input:hover {
+            border-color: #cbd5e1;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3.5px var(--focus-ring);
+        }
+
+        .input-wrapper:focus-within .leading-icon {
+            color: var(--primary);
+        }
+
+        .trailing-btn {
+            position: absolute;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .trailing-btn:hover {
+            background-color: #f1f5f9;
+            color: var(--text-primary);
+        }
+
+        .caps-warning {
+            display: none;
+            font-size: 0.76rem;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 5px 10px;
+            margin-top: 7px;
+        }
+
+        .caps-warning.active {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .form-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 6px 0 22px;
+            gap: 12px;
+        }
+
+        .remember-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            margin: 0;
+        }
+
+        .remember-checkbox {
+            width: 15px;
+            height: 15px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .forgot-link:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .btn-submit {
+            width: 100%;
+            height: 45px;
+            border: none;
+            border-radius: 11px;
+            background-color: var(--primary);
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+            box-shadow: 0 8px 18px -6px rgba(29, 78, 216, 0.45);
+        }
+
+        .btn-submit:active:not(:disabled) {
+            transform: scale(0.99);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+        }
+
+        .card-footer-links {
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid #f1f5f9;
+            text-align: center;
+        }
+
+        .signup-text {
+            font-size: 0.84rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .signup-text a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .signup-text a:hover {
+            text-decoration: underline;
+        }
+
+        .admin-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.79rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 8px;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .admin-link:hover {
+            background-color: #f1f5f9;
+            color: var(--text-primary);
         }
     </style>
 </head>
-<body class="d-flex align-items-center justify-content-center py-5">
-
-    <div class="card auth-card p-4 p-md-5" style="max-width: 440px; width: 100%;">
-        
-        <!-- Top Icon Badge -->
-        <div class="icon-badge">
-            <i class="fa-solid fa-lock"></i>
-        </div>
-
-        <div class="text-center mb-4">
-            <h3 class="fw-bold text-dark mb-1">Welcome Back!</h3>
-            <p class="text-muted small">Sign in to your distributor billing account</p>
-        </div>
-
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-4 small py-2" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<body>
+    <main class="login-container">
+        <section class="login-card" aria-label="Sign in form">
+            <div class="brand-header">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
                 </div>
-            {% endfor %}
-        {% endif %}
-
-        <form method="POST">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label class="form-label fw-medium text-secondary small">Email Address</label>
-                <div class="input-group">
-                    <input type="email" name="email" class="form-control rounded-pill px-4" placeholder="name@example.com" required>
-                </div>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label fw-medium text-secondary small">Password</label>
-                <input type="password" name="password" class="form-control rounded-pill px-4" placeholder="••••••••" required>
+                <h1 class="brand-title">Sign in to your account</h1>
+                <p class="brand-subtitle">Use your email address or registered mobile number</p>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-4 small">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="rememberMe">
-                    <label class="form-check-label text-muted" for="rememberMe">Remember me</label>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 py-2 px-3 small mb-3" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" id="loginForm" novalidate>
+                {% csrf_token %}
+
+                <div class="field-group">
+                    <label for="emailInput" class="field-label">
+                        <span>Email or Mobile Number</span>
+                        <span class="field-hint" id="identifierModeHint">Primary: Email</span>
+                    </label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope leading-icon" id="identifierIcon"></i>
+                        <input
+                            type="text"
+                            id="emailInput"
+                            name="email"
+                            class="form-input"
+                            placeholder="name@example.com or 9876543210"
+                            autocomplete="username"
+                            autofocus
+                            required
+                        >
+                    </div>
                 </div>
-                <a href="{% url 'send_otp' %}" class="text-decoration-none text-primary fw-medium">Forgot Password?</a>
+
+                <div class="field-group">
+                    <label for="passwordInput" class="field-label">
+                        <span>Password</span>
+                    </label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock leading-icon"></i>
+                        <input
+                            type="password"
+                            id="passwordInput"
+                            name="password"
+                            class="form-input"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <button
+                            type="button"
+                            class="trailing-btn"
+                            id="togglePasswordBtn"
+                            aria-label="Show or hide password"
+                        >
+                            <i class="fa-regular fa-eye" id="togglePasswordIcon"></i>
+                        </button>
+                    </div>
+                    <div class="caps-warning" id="capsLockWarning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Caps Lock is on</span>
+                    </div>
+                </div>
+
+                <div class="form-meta">
+                <label class="remember-label" for="rememberMe">
+                    <input
+                        type="checkbox"
+                        class="remember-checkbox"
+                        id="rememberMe"
+                        name="remember_me"
+                    >
+                    <span>Remember me</span>
+                </label>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="{% url 'forgot_password' %}" class="forgot-link">Forgot password?</a>
+                    <a href="{% url 'reset_password' %}" class="forgot-link">Reset password</a>
+                </div>
             </div>
 
-            <button type="submit" class="btn btn-primary-custom w-100 text-white mb-4">Login Account</button>
-        </form>
+                <button type="submit" class="btn-submit" id="submitBtn">
+                    <span id="submitBtnText">Sign In</span>
+                    <i class="fa-solid fa-arrow-right small" id="submitBtnIcon"></i>
+                </button>
+            </form>
 
-        <div class="text-center border-top pt-3">
-            <p class="text-muted small mb-0">Don't have an account? <a href="{% url 'register' %}" class="text-decoration-none fw-semibold text-primary">Create Account</a></p>
-        </div>
-    </div>
+            <div class="card-footer-links">
+                <p class="signup-text">
+                    New to Advance Billing? <a href="{% url 'register' %}">Create an account</a>
+                </p>
+                <a href="{% url 'admin_register_page' %}" class="admin-link">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Admin Registration</span>
+                </a>
+            </div>
+        </section>
+    </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            const toggleBtn = document.getElementById("togglePasswordBtn");
+            const passwordInput = document.getElementById("passwordInput");
+            const toggleIcon = document.getElementById("togglePasswordIcon");
+            const capsWarning = document.getElementById("capsLockWarning");
+            const identifierInput = document.getElementById("emailInput");
+            const identifierIcon = document.getElementById("identifierIcon");
+            const identifierHint = document.getElementById("identifierModeHint");
+            const loginForm = document.getElementById("loginForm");
+            const submitBtn = document.getElementById("submitBtn");
+            const submitBtnText = document.getElementById("submitBtnText");
+            const submitBtnIcon = document.getElementById("submitBtnIcon");
+
+            if (toggleBtn && passwordInput && toggleIcon) {
+                toggleBtn.addEventListener("click", function () {
+                    const shouldShow = passwordInput.type === "password";
+                    passwordInput.type = shouldShow ? "text" : "password";
+                    toggleIcon.className = shouldShow ? "fa-regular fa-eye-slash" : "fa-regular fa-eye";
+                });
+            }
+
+            if (passwordInput && capsWarning) {
+                function updateCapsLock(e) {
+                    if (typeof e.getModifierState === "function") {
+                        capsWarning.classList.toggle("active", e.getModifierState("CapsLock"));
+                    }
+                }
+                passwordInput.addEventListener("keyup", updateCapsLock);
+                passwordInput.addEventListener("keydown", updateCapsLock);
+                passwordInput.addEventListener("blur", function () {
+                    capsWarning.classList.remove("active");
+                });
+            }
+
+            if (identifierInput && identifierIcon && identifierHint) {
+                identifierInput.addEventListener("input", function () {
+                    const val = identifierInput.value.trim();
+                    const digitsOnly = val.replace(/\D/g, "");
+                    const looksLikePhone = val.length > 0 && !val.includes("@") && digitsOnly.length >= 4 && digitsOnly.length === val.replace(/[\s+\-()]/g, "").length;
+
+                    if (looksLikePhone) {
+                        identifierIcon.className = "fa-solid fa-mobile-screen-button leading-icon";
+                        identifierHint.textContent = "Secondary: Mobile";
+                    } else {
+                        identifierIcon.className = "fa-regular fa-envelope leading-icon";
+                        identifierHint.textContent = "Primary: Email";
+                    }
+                });
+            }
+
+            if (loginForm && submitBtn) {
+                loginForm.addEventListener("submit", function () {
+                    submitBtn.disabled = true;
+                    if (submitBtnText) submitBtnText.textContent = "Signing in...";
+                    if (submitBtnIcon) submitBtnIcon.className = "fa-solid fa-circle-notch fa-spin small";
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

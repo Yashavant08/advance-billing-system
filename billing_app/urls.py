@@ -23,7 +23,10 @@ urlpatterns = [
     path('invoices/create/', views.create_invoice, name='create_invoice'),
     path('invoices/<int:invoice_id>/pdf/', views.invoice_pdf, name='invoice_pdf'),
     path('invoices/<int:invoice_id>/', views.invoice_detail_view, name='invoice_detail'),
-    path("api/admin/register/", views.api_admin_register, name="api_admin_register"),
-    path("register-admin/", views.admin_register_page, name="admin_register_page"),
-    path("api/admin/register/", views.api_admin_register, name="api_admin_register"),
+    path('api/admin/register/', views.api_admin_register, name='api_admin_register'),
+    path('register-admin/', views.admin_register_page, name='admin_register_page'),
+    path('forgot-password/', views.forgot_password_view, name='forgot_password'),
+    path('reset-password/', views.reset_password_view, name='reset_password'),
+    path("change-password/", views.change_password_view, name="change_password"),
+   
 ]
