@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Inventory | Advance Billing System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -24,9 +25,9 @@
 <body class="py-5">
 
     <div class="container" style="max-width: 1000px;">
-        
+
         <!-- Top Navigation / Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div class="d-flex align-items-center gap-3">
                 <div class="header-badge shadow-sm">
                     <i class="fa-solid fa-boxes-stacked"></i>
@@ -48,7 +49,7 @@
 
         <!-- Main Card Container -->
         <div class="card main-card p-4">
-            
+
             <!-- Search Bar Form -->
             <form method="GET" action="" class="row g-3 mb-4">
                 <div class="col-md-8">
@@ -56,7 +57,7 @@
                         <span class="input-group-text bg-white border-end-0 rounded-start-4 ps-3 text-muted">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
-                        <input type="text" name="q" value="{{ query }}" class="form-control border-start-0 ps-0 shadow-none" placeholder="Search by product name...">
+                        <input type="text" name="q" value="{{ query|default:'' }}" class="form-control border-start-0 ps-0 shadow-none" placeholder="Search by product name...">
                     </div>
                 </div>
                 <div class="col-md-4 d-flex gap-2">
@@ -70,7 +71,7 @@
             <!-- Messages Alert -->
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-4 small py-2 shadow-sm border-0 mb-4" role="alert">
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show rounded-4 small py-2 shadow-sm border-0 mb-4" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -145,14 +146,14 @@
 
             <!-- Pagination Section -->
             {% if page_obj.has_other_pages %}
-            <nav class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4 pt-3 border-top">
                 <div class="text-muted small">
                     Showing page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
                 </div>
                 <ul class="pagination mb-0">
                     {% if page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link shadow-sm" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+                            <a class="page-link shadow-sm" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">
                                 <i class="fa-solid fa-chevron-left small"></i> Prev
                             </a>
                         </li>
@@ -164,13 +165,13 @@
                         {% if page_obj.number == num %}
                             <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if query %}&q={{ query|urlencode }}{% endif %}">{{ num }}</a></li>
                         {% endif %}
                     {% endfor %}
 
                     {% if page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link shadow-sm" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+                            <a class="page-link shadow-sm" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">
                                 Next <i class="fa-solid fa-chevron-right small"></i>
                             </a>
                         </li>

@@ -28,5 +28,10 @@ urlpatterns = [
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('reset-password/', views.reset_password_view, name='reset_password'),
     path("change-password/", views.change_password_view, name="change_password"),
-   
+    path("api/customers/register/", views.customer_register_api, name="api_customer_register"),
+    path("customers/register/", views.customer_register_page, name="customer_register"),
+    path("products/", views.product_list_view, name="product_list"),
+    path("products/add/", views.product_create_view, name="product_create"),
+    path("products/<int:pk>/edit/", views.product_update_view, name="product_update"),
+    path("products/<int:pk>/delete/", views.product_delete_view, name="product_delete"),
 ]

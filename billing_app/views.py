@@ -1597,3 +1597,160 @@ def reset_password_view(request):
         "billing_app/reset_password.html",
         {"recovery_email": user.email},
     )
+
+import json
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+from .models import Customer
+
+
+@login_required
+@require_POST
+def customer_register_api(request):
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON payload."},
+                status=400,
+            )
+    else:
+        data = request.POST
+
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    address = (data.get("address") or "").strip()
+
+    if not name or not phone:
+        return JsonResponse(
+            {"success": False, "error": "Customer name and phone number are required."},
+            status=400,
+        )
+
+    if Customer.objects.filter(distributor=request.user, phone=phone).exists():
+        return JsonResponse(
+            {"success": False, "error": "A customer with this phone number already exists."},
+            status=400,
+        )
+
+    customer = Customer.objects.create(
+        distributor=request.user,
+        name=name,
+        email=email or None,
+        phone=phone,
+        address=address or None,
+    )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Customer registered successfully.",
+            "customer": {
+                "id": customer.id,
+                "name": customer.name,
+                "email": customer.email or "",
+                "phone": customer.phone,
+                "address": customer.address or "",
+                "created_at": customer.created_at.isoformat(),
+            },
+        },
+        status=201,
+    )
+
+@login_required
+def customer_register_page(request):
+    return render(request, "billing_app/customer_register.html")
+
+from decimal import Decimal, InvalidOperation
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from .models import Product
+
+
+def _parse_product_data(request):
+    name = (request.POST.get("name") or "").strip()
+    category = (request.POST.get("category") or "").strip()
+    raw_price = (request.POST.get("price") or "").strip()
+    raw_stock = (request.POST.get("stock") or "").strip()
+    raw_gst = (request.POST.get("gst_rate") or "0").strip()
+
+    if not name or not raw_price or not raw_stock:
+        return None, "Product name, price, and stock are required."
+
+    try:
+        price = Decimal(raw_price)
+        gst_rate = Decimal(raw_gst or "0")
+        stock = int(raw_stock)
+    except (InvalidOperation, ValueError):
+        return None, "Please enter valid numeric values for price, stock, and GST rate."
+
+    if price < Decimal("0.00") or gst_rate < Decimal("0.00") or stock < 0:
+        return None, "Price, stock, and GST rate cannot be negative."
+
+    return {
+        "name": name,
+        "category": category,
+        "price": price,
+        "stock": stock,
+        "gst_rate": gst_rate,
+    }, None
+
+
+@login_required
+def product_list_view(request):
+    products = Product.objects.filter(distributor=request.user).order_by("-created_at")
+    return render(request, "billing_app/product_list.html", {"products": products})
+
+
+@login_required
+def product_create_view(request):
+    if request.method == "POST":
+        data, err = _parse_product_data(request)
+        if err:
+            messages.error(request, err)
+            return render(request, "billing_app/product_form.html", {"mode": "create", "form_data": request.POST})
+
+        Product.objects.create(distributor=request.user, **data)
+        messages.success(request, "Product added successfully.")
+        return redirect("product_list")
+
+    return render(request, "billing_app/product_form.html", {"mode": "create"})
+
+
+@login_required
+def product_update_view(request, pk):
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+
+    if request.method == "POST":
+        data, err = _parse_product_data(request)
+        if err:
+            messages.error(request, err)
+            return render(request, "billing_app/product_form.html", {"mode": "update", "product": product, "form_data": request.POST})
+
+        for field, value in data.items():
+            setattr(product, field, value)
+        product.save(update_fields=["name", "category", "price", "stock", "gst_rate"])
+        messages.success(request, "Product updated successfully.")
+        return redirect("product_list")
+
+    return render(request, "billing_app/product_form.html", {"mode": "update", "product": product})
+
+
+@login_required
+@require_POST
+def product_delete_view(request, pk):
+    product = get_object_or_404(Product, pk=pk, distributor=request.user)
+    try:
+        product.delete()
+        messages.success(request, "Product deleted successfully.")
+    except IntegrityError:
+        messages.error(request, "Cannot delete this product because it is already used in an invoice.")
+    return redirect("product_list")
